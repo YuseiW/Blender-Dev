@@ -2,46 +2,36 @@ bl_info = {
     "name": "Animation Reference Tool",
     "author": "Yusei Watanabe",
     "version": (0, 1, 0),
-    "blender": (4, 5, 0),
-    "location": "View3D > Sidebar",
+    "blender": (5, 2, 0),
+    "location": "View3D > Sidebar > AnimRef",
     "description": "Animation reference image management tool",
     "category": "Animation",
 }
 
 
-import bpy
-
-
-class ANIMREF_PT_main_panel(bpy.types.Panel):
-
-    bl_label = "Animation Reference"
-    bl_idname = "ANIMREF_PT_main_panel"
-
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "AnimRef"
-
-    def draw(self, context):
-
-        layout = self.layout
-
-        layout.label(
-            text="テスト"
-        )
-
-
-classes = (
-    ANIMREF_PT_main_panel,
-)
+from . import properties
+from . import operators
+from . import ui
+from . import timeline_manager
 
 
 def register():
 
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    properties.register()
+
+    operators.register()
+
+    ui.register()
+
+    timeline_manager.register_handlers()
 
 
 def unregister():
 
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    timeline_manager.unregister_handlers()
+
+    ui.unregister()
+
+    operators.unregister()
+
+    properties.unregister()
