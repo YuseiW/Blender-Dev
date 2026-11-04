@@ -133,23 +133,56 @@ class ANIMREF_PT_ReferenceEditor(bpy.types.Panel):
             text=f"Cut: {cut.name}"
         )
 
+
         # --------------------------------
-        # Current Frame
+        # Timeline Sync
         # --------------------------------
 
-        row = layout.row()
+        sync_box = layout.box()
+
+        sync_box.label(
+            text="Timeline Sync",
+            icon='TIME'
+        )
+
+        # 自動同期のON/OFF
+        sync_box.prop(
+            project,
+            "auto_sync",
+            text="タイムライン自動同期"
+        )
+
+        # 現在フレームの表示
+        row = sync_box.row(align=True)
 
         row.label(
             text=f"現在フレーム: {context.scene.frame_current}"
         )
 
+        # 手動同期ボタン
         row.operator(
             "animref.sync_current_frame",
             text="同期",
             icon='FILE_REFRESH'
         )
 
+        # 現在の動作状態
+        if project.auto_sync:
+
+            sync_box.label(
+                text="自動同期: ON",
+                icon='CHECKMARK'
+            )
+
+        else:
+
+            sync_box.label(
+                text="自動同期: OFF",
+                icon='PAUSE'
+            )
+
         layout.separator()
+
 
         # --------------------------------
         # Category

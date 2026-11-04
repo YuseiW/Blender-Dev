@@ -5,10 +5,13 @@ from bpy.app.handlers import persistent
 from .reference_manager import get_reference_collection
 from .utils import find_image_by_uid
 
+
 from .image_manager import (
     load_blender_image,
     show_image_in_editors,
+    clear_reference_images_in_editors,
 )
+
 
 def calculate_reference_ranges(
     collection,
@@ -168,6 +171,7 @@ def sync_reference_display(scene):
     # --------------------------------
 
     if len(project.cuts) == 0:
+        clear_reference_images_in_editors(project)
 
         return {
             "status": "NO_CUT",
@@ -178,6 +182,7 @@ def sync_reference_display(scene):
         }
 
     if project.active_cut_index >= len(project.cuts):
+        clear_reference_images_in_editors(project)
 
         return {
             "status": "INVALID_CUT",
@@ -208,6 +213,7 @@ def sync_reference_display(scene):
     )
 
     if reference is None:
+        clear_reference_images_in_editors(project)
 
         return {
             "status": "NO_REFERENCE",
@@ -218,6 +224,7 @@ def sync_reference_display(scene):
         }
 
     if image_asset is None:
+        clear_reference_images_in_editors(project)
 
         return {
             "status": "MISSING_IMAGE_ASSET",
@@ -236,6 +243,7 @@ def sync_reference_display(scene):
     )
 
     if status != "OK":
+        clear_reference_images_in_editors(project)
 
         return {
             "status": status,

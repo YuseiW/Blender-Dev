@@ -79,11 +79,33 @@ class ANIMREF_PT_MainPanel(bpy.types.Panel):
             text="Project"
         )
 
+        
         layout.prop(
             project,
             "project_name",
             text=""
         )
+
+        # --------------------------------
+        # Project Save / Load
+        # --------------------------------
+
+        row = layout.row(align=True)
+
+        row.operator(
+            "animref.save_project",
+            text="保存",
+            icon='EXPORT'
+        )
+
+        row.operator(
+            "animref.load_project",
+            text="読み込み",
+            icon='IMPORT'
+        )
+
+        layout.separator()
+
 
         layout.separator()
 

@@ -193,3 +193,60 @@ def show_image_in_editors(image):
             displayed_count += 1
 
     return displayed_count
+
+
+
+def clear_reference_images_in_editors(project):
+    """
+    Image Editorに表示されている画像のうち、
+    現在のProjectのImage Poolに登録された
+    画像だけを表示解除する。
+
+    Returns:
+        表示解除したImage Editorの数
+    """
+
+    project_paths = set()
+
+    for asset in project.images:
+        if asset.filepath:
+            filepath = bpy.path.abspath(
+                asset.filepath
+            )
+
+            project_paths.add(
+                normalize_filepath(filepath)
+            )
+
+    window_manager = bpy.context.window_manager
+
+    if window_manager is None:
+        return 0
+
+    cleared_count = 0
+
+    for window in window_manager.windows:
+        for area in window.screen.areas:
+
+            if area.type != 'IMAGE_EDITOR':
+                continue
+
+            space = area.spaces.active
+            image = space.image
+
+            if image is None:
+                continue
+
+            if not image.filepath:
+                continue
+
+            image_path = normalize_filepath(
+                bpy.path.abspath(image.filepath)
+            )
+
+            # このProjectで管理している画像だけ解除
+            if image_path in project_paths:
+                space.image = None
+                cleared_count += 1
+
+    return cleared_count

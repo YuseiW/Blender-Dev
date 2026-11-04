@@ -118,10 +118,55 @@ class ANIMREF_PG_Cut(bpy.types.PropertyGroup):
     )
 
 
+
+
+# ==========================================
+# Display Selection Update
+# ==========================================
+
+def update_reference_selection(self, context):
+    """
+    カット・資料カテゴリ・自動同期設定が
+    変更されたときに表示を更新する。
+    """
+
+    if context is None:
+        return
+
+    scene = getattr(context, "scene", None)
+
+    if scene is None:
+        return
+
+    project = scene.animref_project
+
+    # 自動同期が無効なら何もしない
+    if not project.auto_sync:
+        return
+
+    # 別SceneのProjectを誤って更新しない
+    if self.as_pointer() != project.as_pointer():
+        return
+
+    try:
+        # 循環importを防ぐため関数内でimport
+        from .timeline_manager import (
+            sync_reference_display
+        )
+
+        sync_reference_display(scene)
+
+    except Exception as error:
+        print(
+            "[AnimRef] Selection sync error:",
+            error
+        )
+
 # ============================================================
 # Project
 # プロジェクト全体
 # ============================================================
+
 
 class ANIMREF_PG_Project(bpy.types.PropertyGroup):
 
@@ -158,6 +203,7 @@ class ANIMREF_PG_Project(bpy.types.PropertyGroup):
     active_cut_index: IntProperty(
         default=0,
         min=0,
+        update=update_reference_selection,
     )
 
     active_category: EnumProperty(
@@ -168,14 +214,14 @@ class ANIMREF_PG_Project(bpy.types.PropertyGroup):
             ('KEYFRAME', "原画", ""),
         ],
         default='STORYBOARD',
+        update=update_reference_selection,
     )
-
     auto_sync: BoolProperty(
-      name="Auto Sync",
-      description="Timelineの変更に合わせて資料を自動表示する",
-      default=False,
+        name="Auto Sync",
+        description="Timelineの変更に合わせて資料を自動表示する",
+        default=False,
+        update=update_reference_selection,
     )
-
 # ============================================================
 # Registration
 # ============================================================
