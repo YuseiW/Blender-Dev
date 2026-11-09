@@ -2,7 +2,7 @@ import json
 import os
 
 from .utils import generate_uid
-
+from .validation import validate_project_data
 
 PROJECT_FORMAT = "AnimationReferenceProject"
 PROJECT_VERSION = 1
@@ -183,153 +183,282 @@ def load_reference(collection, data):
     return reference
 
 
-# ============================================================
-# Load Project
-# ============================================================
+
+# ==========================================
+# Load Project with Rollback
+# ==========================================
 
 def load_project(project, filepath):
 
     filepath = os.path.abspath(filepath)
+
+    # ----------------------------------
+    # 1. JSON読み込み
+    # ----------------------------------
 
     with open(
         filepath,
         "r",
         encoding="utf-8"
     ) as file:
-
         data = json.load(file)
 
-    # ----------------------------------------
-    # ファイル形式確認
-    # ----------------------------------------
-
-    if data.get("format") != PROJECT_FORMAT:
-
-        raise ValueError(
-            "Animation Reference Projectではありません"
-        )
+    # ----------------------------------
+    # 2. データ検証
+    # ----------------------------------
 
     project_directory = os.path.dirname(filepath)
 
-    # ----------------------------------------
-    # 古いデータを削除
-    # ----------------------------------------
+    warnings = validate_project_data(
+        data,
+        project_directory,
+        PROJECT_FORMAT,
+        PROJECT_VERSION,
+    )
+
+    # ----------------------------------
+    # 3. 変更前の状態を退避
+    # ----------------------------------
+
+    backup = _capture_project_state(project)
+
+    previous_auto_sync = project.auto_sync
+
+    # 中途半端な状態で同期されないよう停止
+    project.auto_sync = False
+
+    recovery_ok = True
+
+    # ----------------------------------
+    # 4. 新しいProjectを適用
+    # ----------------------------------
+
+    try:
+
+        _apply_project_data(
+            project,
+            data,
+            filepath,
+            resolve_paths=True,
+            restore_selection=False,
+        )
+
+    # ----------------------------------
+    # 5. エラー時は復元する
+    # ----------------------------------
+
+    except Exception as load_error:
+
+        print(
+            "[AnimRef] Load failed:",
+            load_error
+        )
+
+        try:
+
+            _apply_project_data(
+                project,
+                backup,
+                backup["project_filepath"],
+                resolve_paths=False,
+                restore_selection=True,
+            )
+
+            print(
+                "[AnimRef] Previous project restored"
+            )
+
+        except Exception as rollback_error:
+
+            recovery_ok = False
+
+            raise RuntimeError(
+                "読み込みと復元の両方に失敗しました。"
+                f" 読み込みエラー: {load_error}"
+                f" 復元エラー: {rollback_error}"
+            ) from rollback_error
+
+        raise
+
+    # ----------------------------------
+    # 6. 同期状態を戻す
+    # ----------------------------------
+
+    finally:
+
+        if recovery_ok:
+            project.auto_sync = previous_auto_sync
+        else:
+            project.auto_sync = False
+
+    # ----------------------------------
+    # 7. 警告を出力
+    # ----------------------------------
+
+    for warning in warnings:
+
+        print(
+            "[AnimRef][Warning]",
+            warning
+        )
+
+    return project
+
+
+# ==========================================
+# Backup Current Project
+# ==========================================
+
+def _capture_project_state(project):
+    """
+    現在のProjectをメモリ上の辞書に退避する。
+    画像パスは変換せず、そのまま保持する。
+    """
+
+    cuts = []
+
+    for cut in project.cuts:
+        cut_data = cut_to_dict(cut)
+
+        for prop in (
+            "active_storyboard_index",
+            "active_layout_index",
+            "active_keyframe_index",
+        ):
+            cut_data[prop] = getattr(cut, prop)
+
+        cuts.append(cut_data)
+
+    return {
+        "project_name": project.project_name,
+        "project_filepath": project.project_filepath,
+        "fps": project.fps,
+        "active_image_index": project.active_image_index,
+        "active_cut_index": project.active_cut_index,
+        "active_category": project.active_category,
+
+        "images": [
+            {
+                "uid": img.uid,
+                "name": img.name,
+                "filepath": img.filepath,
+            }
+            for img in project.images
+        ],
+
+        "cuts": cuts,
+    }
+
+
+# ==========================================
+# Apply Project Data
+# ==========================================
+
+def _apply_project_data(
+    project,
+    data,
+    filepath,
+    *,
+    resolve_paths=True,
+    restore_selection=False,
+):
+    """
+    辞書データをBlenderのProjectに反映する。
+
+    resolve_paths:
+        True: JSONの相対パスを解決する
+        False: 退避時のパスをそのまま復元する
+
+    restore_selection:
+        True: 選択位置も復元する
+    """
 
     project.images.clear()
     project.cuts.clear()
 
-    # ----------------------------------------
-    # Project
-    # ----------------------------------------
-
-    project.project_name = data.get(
-        "project_name",
-        "Untitled Project"
-    )
-
-    project.fps = data.get(
-        "fps",
-        24
-    )
-
+    project.project_name = data["project_name"]
+    project.fps = data["fps"]
     project.project_filepath = filepath
 
-    # ----------------------------------------
+    # ----------------------------------
     # Images
-    # ----------------------------------------
+    # ----------------------------------
 
-    for image_data in data.get(
-        "images",
-        []
-    ):
+    for image_data in data["images"]:
 
         image = project.images.add()
 
-        image.uid = image_data.get(
-            "uid",
-            generate_uid("img")
-        )
+        image.uid = image_data["uid"]
+        image.name = image_data["name"]
 
-        image.name = image_data.get(
-            "name",
-            "Unnamed Image"
-        )
+        path = image_data["filepath"]
 
-        stored_path = image_data.get(
-            "filepath",
-            ""
-        )
+        if resolve_paths and path:
 
-        if stored_path:
-
-            if os.path.isabs(stored_path):
-                image.filepath = stored_path
-
-            else:
-                image.filepath = os.path.normpath(
+            if not os.path.isabs(path):
+                path = os.path.normpath(
                     os.path.join(
-                        project_directory,
-                        stored_path
+                        os.path.dirname(filepath),
+                        path,
                     )
                 )
 
-    # ----------------------------------------
-    # Cuts
-    # ----------------------------------------
+        image.filepath = path
 
-    for cut_data in data.get(
-        "cuts",
-        []
-    ):
+    # ----------------------------------
+    # Cuts
+    # ----------------------------------
+
+    for cut_data in data["cuts"]:
 
         cut = project.cuts.add()
 
-        cut.uid = cut_data.get(
-            "uid",
-            generate_uid("cut")
+        cut.uid = cut_data["uid"]
+        cut.name = cut_data["name"]
+        cut.timeline_start = cut_data["timeline_start"]
+
+        categories = (
+            ("storyboard", cut.storyboard_items),
+            ("layout", cut.layout_items),
+            ("keyframe", cut.keyframe_items),
         )
 
-        cut.name = cut_data.get(
-            "name",
-            "Cut"
+        for key, collection in categories:
+            for ref_data in cut_data[key]:
+                load_reference(collection, ref_data)
+
+        if restore_selection:
+
+            for prop in (
+                "active_storyboard_index",
+                "active_layout_index",
+                "active_keyframe_index",
+            ):
+                setattr(
+                    cut,
+                    prop,
+                    cut_data[prop],
+                )
+
+    # ----------------------------------
+    # Active Selection
+    # ----------------------------------
+
+    if restore_selection:
+
+        project.active_image_index = (
+            data["active_image_index"]
         )
 
-        cut.timeline_start = cut_data.get(
-            "timeline_start",
-            1
+        project.active_cut_index = (
+            data["active_cut_index"]
         )
 
-        # 絵コンテ
-        for reference_data in cut_data.get(
-            "storyboard",
-            []
-        ):
+        project.active_category = (
+            data["active_category"]
+        )
 
-            load_reference(
-                cut.storyboard_items,
-                reference_data
-            )
+    else:
 
-        # レイアウト
-        for reference_data in cut_data.get(
-            "layout",
-            []
-        ):
-
-            load_reference(
-                cut.layout_items,
-                reference_data
-            )
-
-        # 原画
-        for reference_data in cut_data.get(
-            "keyframe",
-            []
-        ):
-
-            load_reference(
-                cut.keyframe_items,
-                reference_data
-            )
-
-    return project
+        project.active_image_index = 0
+        project.active_cut_index = 0
