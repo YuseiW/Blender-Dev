@@ -104,8 +104,16 @@ class ANIMREF_PT_MainPanel(bpy.types.Panel):
             icon='IMPORT'
         )
 
+        # --------------------------------
+        # Reference Viewer
+        # --------------------------------
         layout.separator()
 
+        layout.operator(
+            "animref.open_viewer",
+            text="ビュアーを開く",
+            icon='IMAGE_DATA'
+        )
 
         layout.separator()
 

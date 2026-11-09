@@ -1,4 +1,41 @@
 
+## 2026-11-10
+### Phase 2-A / Step 1 実装前チェック
+
+状態: 実装開始・動作未確認
+
+#### 仕様確認
+- CURRENT_SPEC.md: 確認済み
+- DECISIONS.md: 確認済み
+- DEVELOPMENT_LOG.md: 確認済み
+
+#### GitHub確認
+- main: 1ee89cd
+- ローカルの未push変更: 未確認
+
+#### 今回の目標
+- Blender標準の別ウィンドウを生成
+- 新しいウィンドウをImage Editorにする
+- 同一セッションでの重複起動を防止
+- 既存のBlender操作を維持する
+
+#### 変更予定ファイル
+- viewer_manager.py（新規）
+- operators/viewer.py（新規）
+- operators/__init__.py（変更）
+- ui/main_panel.py（変更）
+
+#### 今回は変更しないもの
+- データ構造
+- JSON保存形式
+- Timeline同期処理
+
+#### 完了条件
+- ビュアーを開ける
+- 2回押してもウィンドウが増殖しない
+- 閉じた後に再度開ける
+- 既存のアドオンが正常動作する
+
 # DEVELOPMENT_LOG
 # Blender Animation Reference Tool
 
