@@ -2,34 +2,36 @@
 import bpy
 
 
-# 実行中のBlenderセッションでのみ保持する
-_viewer_window_pointer = None
+# BlenderのScreenに保存する識別キー
+VIEWER_SCREEN_KEY = "animref_reference_viewer"
 
 
 def find_viewer_window(window_manager):
     """
-    以前作成したビュアーが
-    まだ存在するか確認する。
+    Screenに付けられた識別情報から
+    専用ビュアーのWindowを探す。
+
+    Returns:
+        Window | None
     """
 
-    global _viewer_window_pointer
-
-    if _viewer_window_pointer is None:
+    if window_manager is None:
         return None
 
     for window in window_manager.windows:
 
-        if (
-            window.as_pointer()
-            == _viewer_window_pointer
+        screen = window.screen
+
+        if screen is None:
+            continue
+
+        if screen.get(
+            VIEWER_SCREEN_KEY,
+            False
         ):
             return window
 
-    # 閉じられていた場合は参照を破棄
-    _viewer_window_pointer = None
-
     return None
-
 
 def open_viewer_window(context):
     """
@@ -47,15 +49,47 @@ def open_viewer_window(context):
         AREA_NOT_FOUND
     """
 
-    global _viewer_window_pointer
 
     wm = context.window_manager
 
-    # 既に開いている場合
+
+    
     existing = find_viewer_window(wm)
 
     if existing is not None:
+
+        has_image_editor = any(
+            area.type == 'IMAGE_EDITOR'
+            for area in existing.screen.areas
+        )
+
+        if not has_image_editor:
+            return "VIEWER_AREA_MISSING", existing
+
+        # 今回ボタンを押したSceneを表示対象にする
+        target_scene = context.scene
+
+        if (
+            existing.scene.as_pointer()
+            != target_scene.as_pointer()
+        ):
+
+            try:
+                existing.scene = target_scene
+
+            except Exception:
+                return "SCENE_BIND_FAILED", existing
+
+            # 切替前の画像を表示し続けない
+            for area in existing.screen.areas:
+
+                if area.type == 'IMAGE_EDITOR':
+
+                    area.spaces.active.image = None
+                    area.tag_redraw()
+
         return "ALREADY_OPEN", existing
+
 
     source_window = context.window
     source_area = context.area
@@ -91,7 +125,9 @@ def open_viewer_window(context):
         area=source_area,
         region=region,
     ):
-        result = bpy.ops.screen.area_dupli()
+   
+        result = bpy.ops.screen.area_dupli('INVOKE_DEFAULT')
+    
 
     if 'FINISHED' not in result:
         return "CREATE_FAILED", None
@@ -121,12 +157,29 @@ def open_viewer_window(context):
     if new_area is None:
         return "AREA_NOT_FOUND", new_window
 
+    
     # Image Editorへ変更
     new_area.type = 'IMAGE_EDITOR'
 
-    # ビュアーの識別用に記録
-    _viewer_window_pointer = (
-        new_window.as_pointer()
-    )
+    space = new_area.spaces.active
+
+    # 画像のピン留め
+    space.use_image_pin = True
+
+    # 右側のNパネルを表示
+    space.show_region_ui = True
+
+    # 描画更新
+    new_area.tag_redraw()
+
+
+    # 新しいScreenを専用ビュアーとして識別
+    new_window.screen[VIEWER_SCREEN_KEY] = True
+
+    new_area.tag_redraw()
 
     return "OPENED", new_window
+
+
+
+

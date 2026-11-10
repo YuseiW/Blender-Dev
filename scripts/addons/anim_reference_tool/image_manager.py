@@ -2,7 +2,7 @@ import os
 import bpy
 
 from .utils import generate_uid
-
+from .viewer_manager import find_viewer_window
 
 SUPPORTED_EXTENSIONS = {
     ".png",
@@ -160,23 +160,41 @@ def load_blender_image(image_asset):
     return image, "OK"
 
 
-def show_image_in_editors(image):
+def iter_target_image_areas():
     """
-    現在開いているすべてのWindowを調べ、
-    Image Editorに画像を表示する。
+    画像を同期するImage Editorを取得する。
 
-    Returns:
-        表示できたImage Editorの数
+    専用ビュアーがある場合:
+        ビュアー内だけを対象にする。
+
+    専用ビュアーがない場合:
+        Phase 1と同じく全Image Editorを対象にする。
     """
 
-    displayed_count = 0
+    wm = bpy.context.window_manager
 
-    window_manager = bpy.context.window_manager
+    if wm is None:
+        return
 
-    if window_manager is None:
-        return 0
+    viewer = find_viewer_window(wm)
 
-    for window in window_manager.windows:
+    # 専用ビュアーがある場合
+    if viewer is not None:
+
+        screen = viewer.screen
+
+        if screen is not None:
+            for area in screen.areas:
+
+                if area.type == 'IMAGE_EDITOR':
+                    yield area
+
+        # ビュアーが存在する場合は、
+        # 他のウィンドウへフォールバックしない
+        return
+
+    # ビュアーがない場合は従来の方式
+    for window in wm.windows:
 
         screen = window.screen
 
@@ -185,68 +203,118 @@ def show_image_in_editors(image):
 
         for area in screen.areas:
 
-            if area.type != 'IMAGE_EDITOR':
-                continue
+            if area.type == 'IMAGE_EDITOR':
+                yield area
 
-            area.spaces.active.image = image
 
-            displayed_count += 1
+def show_image_in_editors(image):
+    """
+    同期対象のImage Editorへ画像を表示する。
+
+    Returns:
+        更新したImage Editorの数
+    """
+
+    displayed_count = 0
+
+    for area in iter_target_image_areas():
+
+        space = area.spaces.active
+
+        space.image = image
+
+        area.tag_redraw()
+
+        displayed_count += 1
 
     return displayed_count
 
 
-
 def clear_reference_images_in_editors(project):
     """
-    Image Editorに表示されている画像のうち、
-    現在のProjectのImage Poolに登録された
-    画像だけを表示解除する。
+    同期対象のImage Editorにある
+    現在のプロジェクトの画像だけを解除する。
 
-    Returns:
-        表示解除したImage Editorの数
+    他の画像は変更しない。
     """
+    
+    # ----------------------------------
+    # 専用ビュアーがある場合
+    # ----------------------------------
 
-    project_paths = set()
+    wm = bpy.context.window_manager
 
-    for asset in project.images:
-        if asset.filepath:
-            filepath = bpy.path.abspath(
-                asset.filepath
-            )
+    viewer = (
+        find_viewer_window(wm)
+        if wm is not None
+        else None
+    )
 
-            project_paths.add(
-                normalize_filepath(filepath)
-            )
+    if viewer is not None:
 
-    window_manager = bpy.context.window_manager
+        cleared_count = 0
 
-    if window_manager is None:
-        return 0
-
-    cleared_count = 0
-
-    for window in window_manager.windows:
-        for area in window.screen.areas:
+        for area in viewer.screen.areas:
 
             if area.type != 'IMAGE_EDITOR':
                 continue
 
             space = area.spaces.active
-            image = space.image
 
-            if image is None:
-                continue
+            if space.image is not None:
 
-            if not image.filepath:
-                continue
-
-            image_path = normalize_filepath(
-                bpy.path.abspath(image.filepath)
-            )
-
-            # このProjectで管理している画像だけ解除
-            if image_path in project_paths:
                 space.image = None
+                area.tag_redraw()
+
                 cleared_count += 1
+
+        return cleared_count
+
+    # 以下は既存のproject_pathsによる
+    # 画像解除処理をそのまま残す
+
+
+    project_paths = set()
+
+    # プロジェクトに登録された画像パスを取得
+    for asset in project.images:
+
+        if not asset.filepath:
+            continue
+
+        filepath = bpy.path.abspath(
+            asset.filepath
+        )
+
+        project_paths.add(
+            normalize_filepath(filepath)
+        )
+
+    cleared_count = 0
+
+    for area in iter_target_image_areas():
+
+        space = area.spaces.active
+
+        image = space.image
+
+        if image is None:
+            continue
+
+        if not image.filepath:
+            continue
+
+        image_path = normalize_filepath(
+            bpy.path.abspath(image.filepath)
+        )
+
+        # 現在のプロジェクトの画像だけ解除
+        if image_path in project_paths:
+
+            space.image = None
+
+            area.tag_redraw()
+
+            cleared_count += 1
 
     return cleared_count

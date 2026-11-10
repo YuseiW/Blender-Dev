@@ -3,6 +3,10 @@ import bpy
 
 from ..viewer_manager import open_viewer_window
 
+from ..timeline_manager import (
+    sync_reference_display,
+)
+
 
 class ANIMREF_OT_OpenViewer(bpy.types.Operator):
 
@@ -37,30 +41,56 @@ class ANIMREF_OT_OpenViewer(bpy.types.Operator):
 
             return {'CANCELLED'}
 
-        if status == "OPENED":
+        if status not in {
+            "OPENED",
+            "ALREADY_OPEN",
+        }:
 
             self.report(
-                {'INFO'},
-                "Reference viewer opened"
+                {'ERROR'},
+                f"Viewer creation failed: {status}"
+            )
+
+            return {'CANCELLED'}
+
+        # 開いた直後に現在フレームを同期
+        try:
+
+            sync_result = sync_reference_display(
+                context.scene
+            )
+
+        except Exception as error:
+
+            self.report(
+                {'WARNING'},
+                f"Viewer sync error: {error}"
             )
 
             return {'FINISHED'}
 
-        if status == "ALREADY_OPEN":
+        sync_status = sync_result["status"]
+
+        # 同期の結果を確認
+        if sync_status not in {
+            "OK",
+            "NO_REFERENCE",
+            "NO_CUT",
+        }:
+
+            self.report(
+                {'WARNING'},
+                f"Viewer sync status: {sync_status}"
+            )
+
+        else:
 
             self.report(
                 {'INFO'},
-                "Reference viewer already open"
+                "Reference viewer ready"
             )
 
-            return {'FINISHED'}
-
-        self.report(
-            {'ERROR'},
-            f"Viewer creation failed: {status}"
-        )
-
-        return {'CANCELLED'}
+        return {'FINISHED'}
 
 
 classes = (
@@ -69,10 +99,12 @@ classes = (
 
 
 def register():
+
     for cls in classes:
         bpy.utils.register_class(cls)
 
 
 def unregister():
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

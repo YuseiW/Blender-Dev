@@ -4,7 +4,7 @@ from bpy.app.handlers import persistent
 
 from .reference_manager import get_reference_collection
 from .utils import find_image_by_uid
-
+from .viewer_manager import find_viewer_window
 
 from .image_manager import (
     load_blender_image,
@@ -151,18 +151,39 @@ def resolve_reference_at_frame(
 
 def sync_reference_display(scene):
     """
-    Sceneの現在フレームに対応する資料を検索し、
-    Image Editorへ表示する。
-
-    Returns:
-        {
-            "status": str,
-            "reference": ReferenceItem | None,
-            "image_asset": ImageAsset | None,
-            "frame_start": int | None,
-            "frame_end": int | None,
-        }
+    指定Sceneの現在フレームに対応する
+    リファレンスを同期する。
     """
+
+    # ----------------------------------
+    # 複数Scene対応
+    # ----------------------------------
+
+    wm = bpy.context.window_manager
+
+    if wm is not None:
+
+        viewer = find_viewer_window(wm)
+
+        if viewer is not None:
+
+            viewer_scene = viewer.scene
+
+            # ビュアーの表示対象ではないScene
+            if (
+                viewer_scene.as_pointer()
+                != scene.as_pointer()
+            ):
+
+                return {
+                    "status": "SKIPPED_OTHER_SCENE",
+                    "reference": None,
+                    "image_asset": None,
+                    "frame_start": None,
+                    "frame_end": None,
+                }
+
+    
 
     project = scene.animref_project
 
