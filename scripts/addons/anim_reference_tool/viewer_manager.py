@@ -54,19 +54,62 @@ def open_viewer_window(context):
 
 
     
+    
     existing = find_viewer_window(wm)
 
     if existing is not None:
 
-        has_image_editor = any(
-            area.type == 'IMAGE_EDITOR'
-            for area in existing.screen.areas
-        )
+        screen = existing.screen
 
-        if not has_image_editor:
+        if screen is None:
             return "VIEWER_AREA_MISSING", existing
 
-        # 今回ボタンを押したSceneを表示対象にする
+        areas = list(screen.areas)
+
+        # ----------------------------------
+        # 既存のImage Editorを検索
+        # ----------------------------------
+
+        viewer_area = next(
+            (
+                area for area in areas
+                if area.type == 'IMAGE_EDITOR'
+            ),
+            None
+        )
+
+        # ----------------------------------
+        # Image Editorがなくなっていた場合
+        # ----------------------------------
+
+        if viewer_area is None:
+
+            # 一つのエリアだけを持つウィンドウなら
+            # 安全に元のImage Editorへ戻せる
+            if len(areas) != 1:
+                return "VIEWER_AREA_MISSING", existing
+
+            viewer_area = areas[0]
+
+            try:
+                viewer_area.type = 'IMAGE_EDITOR'
+
+            except Exception:
+                return "VIEWER_AREA_MISSING", existing
+
+        # ----------------------------------
+        # 表示設定を復元
+        # ----------------------------------
+
+        space = viewer_area.spaces.active
+
+        space.use_image_pin = True
+        space.show_region_ui = True
+
+        # ----------------------------------
+        # 表示対象Sceneの確認
+        # ----------------------------------
+
         target_scene = context.scene
 
         if (
@@ -80,15 +123,13 @@ def open_viewer_window(context):
             except Exception:
                 return "SCENE_BIND_FAILED", existing
 
-            # 切替前の画像を表示し続けない
-            for area in existing.screen.areas:
+            # Scene変更時は古い画像を解除
+            space.image = None
 
-                if area.type == 'IMAGE_EDITOR':
-
-                    area.spaces.active.image = None
-                    area.tag_redraw()
+        viewer_area.tag_redraw()
 
         return "ALREADY_OPEN", existing
+
 
 
     source_window = context.window

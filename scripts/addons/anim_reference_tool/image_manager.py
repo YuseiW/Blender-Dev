@@ -131,33 +131,71 @@ def add_image_asset(project, filepath):
 
     return image_asset, "ADDED"
 
+
 def load_blender_image(image_asset):
     """
-    ImageAssetからBlenderのImageを取得する。
+    ImageAssetからBlender Imageを取得する。
 
-    未ロードなら読み込む。
+    Returns:
+        (image, status)
+
+    status:
+        OK
+        NOT_FOUND
+        INVALID_PATH
+        LOAD_ERROR
     """
 
-    filepath = os.path.abspath(
-        image_asset.filepath
-    )
-
-    if not os.path.isfile(filepath):
-
+    # 画像データやパスが存在しない
+    if image_asset is None:
         return None, "NOT_FOUND"
 
-    try:
+    raw_path = image_asset.filepath
 
+    if not raw_path:
+        return None, "NOT_FOUND"
+
+    # ----------------------------------
+    # Blender形式のパスを解決
+    # ----------------------------------
+
+    try:
+        filepath = os.path.normpath(
+            bpy.path.abspath(raw_path)
+        )
+
+        # キャッシュ済み画像であっても
+        # 実ファイルの存在を先に確認する
+        if not os.path.isfile(filepath):
+            return None, "NOT_FOUND"
+
+    except (OSError, ValueError, TypeError):
+        return None, "INVALID_PATH"
+
+    # ----------------------------------
+    # Blenderへ画像を読み込む
+    # ----------------------------------
+
+    try:
         image = bpy.data.images.load(
             filepath,
             check_existing=True
         )
 
-    except RuntimeError:
+    except (RuntimeError, OSError, ValueError) as error:
+
+        print(
+            "[AnimRef] Image load failed:",
+            type(error).__name__
+        )
 
         return None, "LOAD_ERROR"
 
+    if image is None:
+        return None, "LOAD_ERROR"
+
     return image, "OK"
+
 
 
 def iter_target_image_areas():
