@@ -106,8 +106,8 @@ class ANIMREF_PT_MainPanel(bpy.types.Panel):
 
         # --------------------------------
         layout.operator(
-            "animref.open_manager_workspace",
-            text="AnimRef Manager（別ウィンドウ）",
+            "animref.open_external_manager",
+            text="資料管理ツールを開く",
         )
 
         # --------------------------------
