@@ -4,6 +4,7 @@ from . import cut
 from . import reference
 from . import timeline
 from . import project
+from . import manager_workspace
 from . import viewer
 
 
@@ -13,6 +14,7 @@ modules = (
     reference,
     timeline,
     project,
+    manager_workspace,
     viewer,
 )
 
