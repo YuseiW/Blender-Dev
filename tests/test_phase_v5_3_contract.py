@@ -25,7 +25,7 @@ def test_legacy_files_retired():
     assert 'frame_changed(scene)' in timeline
     assert panel.count('"animref.open_external_manager"') == 1
     assert '"animref.open_viewer"' not in panel
-    for rel in ('qt_manager_app.py','qt_viewer_page.py','operators/manager_external.py',
+    for rel in ('qt/qt_manager_app.py','qt/qt_viewer_page.py','operators/manager_external.py',
                 'managers/camera_overlay_manager.py','managers/image_manager.py','managers/viewer_manager.py',
                 'managers/timeline_manager.py','operators/__init__.py','ui/__init__.py'):
         f = ADDON / rel

@@ -433,7 +433,7 @@ class ANIMREF_OT_OpenExternalManager(bpy.types.Operator):
             _stop()
             interpreter = _find_external_python()
             addon_dir = Path(__file__).resolve().parent.parent
-            app_path = addon_dir / "qt_manager_app.py"
+            app_path = addon_dir / "qt" / "qt_manager_app.py"
             if not app_path.is_file():
                 raise RuntimeError("qt_manager_app.py が見つかりません")
             _session_dir = tempfile.mkdtemp(prefix="animref_qt_")

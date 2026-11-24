@@ -18,6 +18,10 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QListWidget, QListWidgetItem, QComboBox, QSpinBox,
     QPlainTextEdit, QFileDialog, QMessageBox, QFrame, QSplitter,
 )
+# Shared IPC lives alongside qt/; do not import the Blender addon.
+_addon_root = str(Path(__file__).resolve().parents[1])
+if _addon_root not in sys.path:
+    sys.path.insert(1, _addon_root)
 from ipc.manager_ipc import read_json, write_json_atomic
 from qt_viewer_page import ViewerPage
 

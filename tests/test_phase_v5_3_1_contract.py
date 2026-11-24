@@ -10,7 +10,7 @@ OLD=(
 )
 REQUIRED=(
  'ui/__init__.py','operators/__init__.py','ui/main_panel.py',
- 'qt_manager_app.py','qt_viewer_page.py','operators/manager_external.py',
+ 'qt/qt_manager_app.py','qt/qt_viewer_page.py','operators/manager_external.py',
  'managers/camera_overlay_manager.py','managers/timeline_manager.py','managers/image_manager.py',
  'managers/viewer_manager.py',
 )

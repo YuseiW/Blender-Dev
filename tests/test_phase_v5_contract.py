@@ -144,7 +144,7 @@ def test_source_contract():
     assert 'bpy.data.images.remove(image)' in code
     assert 'camera.show_background_images' in code
     assert "def frame_changed(scene):" in code
-    for filename in ('qt_manager_app.py','qt_viewer_page.py','operators/manager_external.py'):
+    for filename in ('qt/qt_manager_app.py','qt/qt_viewer_page.py','operators/manager_external.py'):
         src = (ADDON/filename).read_text(encoding='utf-8')
         ast.parse(src, filename=str(ADDON/filename))
     print('PASS V5 source/AST contract')

@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
-QT = ROOT / "scripts/addons/anim_reference_tool/qt_manager_app.py"
+QT = ROOT / "scripts/addons/anim_reference_tool/qt/qt_manager_app.py"
 BRIDGE = ROOT / "scripts/addons/anim_reference_tool/operators/manager_external.py"
 
 
