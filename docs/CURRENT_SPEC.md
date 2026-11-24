@@ -205,3 +205,7 @@ Blenderの別ウィンドウに、現在フレームに
 ## R-7.1 — Qt session shutdown
 
 Qt process exit disables camera overlay for all Scenes and removes only AnimRef-owned slots, including orphaned slots. Opacity and project data are preserved. Reopening Qt starts with overlay OFF. Mock and Blender verification pending.
+
+## Phase V-5.2 (2026-11-25 JST)
+
+旧Image Editorへの自動・手動画像同期を廃止。Qt Viewerとカメラ重畳を表示経路とする。旧Viewer Operator/Panelの登録を停止し、ファイル削除はV-5.3へ分離。sync_reference_displayは資料解決のみ（OKは画像表示成功を意味しない）。

@@ -752,3 +752,7 @@ V-0実機確認: カメラ重畳の表示・透明度調整に成功（ユーザ
 ## R-7.1 — Qt session shutdown
 
 Qt process exit disables camera overlay for all Scenes and removes only AnimRef-owned slots, including orphaned slots. Opacity and project data are preserved. Reopening Qt starts with overlay OFF. Mock and Blender verification pending.
+
+## Phase V-5.2 (2026-11-25 JST)
+
+事前確認: cf31df16、現行仕様・判断履歴・ログを確認。Phase R完了およびR-7.1成功はユーザー報告。V-5.2で旧同期と旧Viewer登録を停止。新規非GUI契約試験を追加。ローカル回帰試験・Blender実機確認は適用後に実施。V-5.3で未使用ファイルを削除予定。

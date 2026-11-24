@@ -12,7 +12,7 @@ class ANIMREF_OT_SyncCurrentFrame(
     bl_idname = "animref.sync_current_frame"
     bl_label = "現在フレームを同期"
     bl_description = (
-        "現在フレームに対応する制作資料を表示します"
+        "現在フレームに対応する制作資料を確認します"
     )
 
     def execute(self, context):
@@ -52,13 +52,6 @@ class ANIMREF_OT_SyncCurrentFrame(
             self.report(
                 {'INFO'},
                 "現在フレームに対応する資料はありません"
-            )
-
-        elif status == "NO_IMAGE_EDITOR":
-
-            self.report(
-                {'WARNING'},
-                "Image Editorがありません"
             )
 
         else:

@@ -1,11 +1,9 @@
 
 from . import main_panel
-from . import viewer_panel
 
 
 modules = (
     main_panel,
-    viewer_panel,
 )
 
 

@@ -4,13 +4,7 @@ from bpy.app.handlers import persistent
 
 from .reference_manager import get_reference_collection
 from ..core.utils import find_image_by_uid
-from .viewer_manager import find_viewer_window
 
-from .image_manager import (
-    load_blender_image,
-    show_image_in_editors,
-    clear_reference_images_in_editors,
-)
 
 
 def calculate_reference_ranges(
@@ -149,156 +143,29 @@ def resolve_reference_at_frame(
         frame_end,
     )
 
+# UI_V5_2_LEGACY_IMAGE_EDITOR_RETIRED
+# LEGACY_VIEWER_RETIRED: Qt Viewer owns reference display.
 def sync_reference_display(scene):
+    """Resolve the current reference without writing to any Image Editor.
+
+    Keep the result contract for existing callers. Qt displays its snapshot;
+    camera overlay is reconciled by its own handler and the Qt bridge.
     """
-    指定Sceneの現在フレームに対応する
-    リファレンスを同期する。
-    """
-
-    # ----------------------------------
-    # 複数Scene対応
-    # ----------------------------------
-
-    wm = bpy.context.window_manager
-
-    if wm is not None:
-
-        viewer = find_viewer_window(wm)
-
-        if viewer is not None:
-
-            viewer_scene = viewer.scene
-
-            # ビュアーの表示対象ではないScene
-            if (
-                viewer_scene.as_pointer()
-                != scene.as_pointer()
-            ):
-
-                return {
-                    "status": "SKIPPED_OTHER_SCENE",
-                    "reference": None,
-                    "image_asset": None,
-                    "frame_start": None,
-                    "frame_end": None,
-                }
-
-    
-
     project = scene.animref_project
-
-    # --------------------------------
-    # Cut確認
-    # --------------------------------
-
-    if len(project.cuts) == 0:
-        clear_reference_images_in_editors(project)
-
-        return {
-            "status": "NO_CUT",
-            "reference": None,
-            "image_asset": None,
-            "frame_start": None,
-            "frame_end": None,
-        }
-
-    if project.active_cut_index >= len(project.cuts):
-        clear_reference_images_in_editors(project)
-
-        return {
-            "status": "INVALID_CUT",
-            "reference": None,
-            "image_asset": None,
-            "frame_start": None,
-            "frame_end": None,
-        }
-
-    cut = project.cuts[
-        project.active_cut_index
-    ]
-
-    # --------------------------------
-    # 現在フレームから資料検索
-    # --------------------------------
-
-    (
-        reference,
-        image_asset,
-        frame_start,
-        frame_end,
-    ) = resolve_reference_at_frame(
-        project,
-        cut,
-        project.active_category,
-        scene.frame_current,
-    )
-
-    if reference is None:
-        clear_reference_images_in_editors(project)
-
-        return {
-            "status": "NO_REFERENCE",
-            "reference": None,
-            "image_asset": None,
-            "frame_start": None,
-            "frame_end": None,
-        }
-
-    if image_asset is None:
-        clear_reference_images_in_editors(project)
-
-        return {
-            "status": "MISSING_IMAGE_ASSET",
-            "reference": reference,
-            "image_asset": None,
-            "frame_start": frame_start,
-            "frame_end": frame_end,
-        }
-
-    # --------------------------------
-    # Blender Image取得
-    # --------------------------------
-
-    image, status = load_blender_image(
-        image_asset
-    )
-
-    if status != "OK":
-        clear_reference_images_in_editors(project)
-
-        return {
-            "status": status,
-            "reference": reference,
-            "image_asset": image_asset,
-            "frame_start": frame_start,
-            "frame_end": frame_end,
-        }
-
-    # --------------------------------
-    # Image Editorへ表示
-    # --------------------------------
-
-    displayed_count = show_image_in_editors(
-        image
-    )
-
-    if displayed_count == 0:
-
-        return {
-            "status": "NO_IMAGE_EDITOR",
-            "reference": reference,
-            "image_asset": image_asset,
-            "frame_start": frame_start,
-            "frame_end": frame_end,
-        }
-
-    return {
-        "status": "OK",
-        "reference": reference,
-        "image_asset": image_asset,
-        "frame_start": frame_start,
-        "frame_end": frame_end,
-    }
+    reference = image_asset = frame_start = frame_end = None
+    if not project.cuts:
+        status = "NO_CUT"
+    elif not 0 <= project.active_cut_index < len(project.cuts):
+        status = "INVALID_CUT"
+    else:
+        reference, image_asset, frame_start, frame_end = resolve_reference_at_frame(
+            project, project.cuts[project.active_cut_index],
+            project.active_category, scene.frame_current,
+        )
+        status = ("NO_REFERENCE" if reference is None else
+                  "MISSING_IMAGE_ASSET" if image_asset is None else "OK")
+    return dict(status=status, reference=reference, image_asset=image_asset,
+                frame_start=frame_start, frame_end=frame_end)
 
 
 # ============================================================
@@ -307,35 +174,9 @@ def sync_reference_display(scene):
 
 @persistent
 def on_frame_change(scene, depsgraph=None):
-    """
-    Blenderの現在フレームが変更されたときに実行する。
-    """
-
-    # animref_projectが存在しないSceneでは何もしない
-    if not hasattr(scene, "animref_project"):
+    """Update only the camera overlay; Qt receives live state via IPC."""
+    if not hasattr(scene, "animref_project") or not scene.animref_project.auto_sync:
         return
-
-    project = scene.animref_project
-
-    # 自動同期がOFFなら何もしない
-    if not project.auto_sync:
-        return
-
-    try:
-
-        sync_reference_display(
-            scene
-        )
-
-    except Exception as error:
-
-        print(
-            "[AnimRef] Timeline sync error:",
-            error
-        )
-
-    # V-4: camera overlay follows Timeline even if Qt has been closed.
-    # It never touches the user's unrelated camera background images.
     try:
         from .camera_overlay_manager import frame_changed
         frame_changed(scene)

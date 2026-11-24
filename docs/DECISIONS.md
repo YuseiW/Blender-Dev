@@ -146,3 +146,7 @@ Adopt the responsibility-based package layout described in CURRENT_SPEC.md. Pres
 ## R-7.1 — Qt session shutdown
 
 Qt process exit disables camera overlay for all Scenes and removes only AnimRef-owned slots, including orphaned slots. Opacity and project data are preserved. Reopening Qt starts with overlay OFF. Mock and Blender verification pending.
+
+## Phase V-5.2 (2026-11-25 JST)
+
+旧Image Editorの画像を上書きしない。旧Viewer登録を停止し、データモデル、JSON、IPC、カメラ重畳およびR-7.1終了処理を維持する。
