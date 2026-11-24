@@ -1,6 +1,6 @@
 """Phase V-5 stabilization / shared Camera data smoke tests.
 
-Uses the mock Blender API from the V-4 tests. The mock tests do not replace
+Uses the recovered mock Blender API from overlay_test_support.py. The mock tests do not replace
 an actual Blender 5.2 integration run.
 """
 import ast
@@ -15,9 +15,9 @@ ADDON = ROOT / 'scripts/addons/anim_reference_tool'
 
 
 def load_v4_fakes():
-    path = ROOT / 'tests/test_phase_v4_contract.py'
+    path = ROOT / 'tests/overlay_test_support.py'
     if not path.is_file():
-        raise RuntimeError('tests/test_phase_v4_contract.py が必要です（V-4を先に適用してください）')
+        raise RuntimeError('tests/overlay_test_support.py が必要です（V-4を先に適用してください）')
     spec = importlib.util.spec_from_file_location('_animref_v4_test_support', path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

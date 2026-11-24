@@ -130,6 +130,7 @@ def check_blender_reorder():
             "_active_cut": lambda p: cut,
             "get_reference_collection": lambda c, cat: c.refs,
             "_refresh_display": lambda s: None,
+            "camera_overlay_manager": SimpleNamespace(sync_overlay=lambda s: None),
             "_snapshot": lambda: {"scene": "Scene", "project_filepath": proj.project_filepath},
             "save_project": fake_save,
         }

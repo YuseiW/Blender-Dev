@@ -189,3 +189,14 @@ Blenderの別ウィンドウに、現在フレームに
 - カメラビューでの位置合わせはFIT（縦横比維持）、最終レンダリングへは含めない。
 - 旧3D Nパネルは起動ボタンのみ。旧Blender Image EditorビュアーはV-5まで残す。
 - 状態: ソース契約／Blender模擬試験／IPC模擬試験済み。Windows/Blender 5.2実機は未検証。
+
+
+## Phase R — package layout (2026-11-25 JST)
+
+- R-1 through R-5: user reported successful local checks. Exact per-test evidence not recorded.
+- `core/`: properties, utils; `storage/`: project_io, validation; `managers/`: six manager modules; `ipc/`: manager_ipc; `qt/`: external PySide6 Viewer and Manager.
+- `operators/` and `ui/` remain Blender-side. The root `__init__.py` remains the addon entry point.
+- Qt runs in an external Python process; shared IPC is imported without loading the Blender addon entry point.
+- No intended changes to UI, data model, JSON format or communication protocol in Phase R.
+- Legacy Image Editor viewer retirement is separate; its acceptance tests are pending, not PASS.
+- R-6: test infrastructure repair; local regression and Blender integration results pending.

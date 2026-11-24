@@ -136,3 +136,8 @@ UI → Operator → Manager → Data
 - Managerの資料編集UIをフレーム変更で再描画しない。
 - 既存JSON要求/応答チャネルとBlender標準ビュアーを維持する。
 - Blenderのカメラ重畳接続はV-4へ分離。
+
+
+## Phase R: package separation
+
+Adopt the responsibility-based package layout described in CURRENT_SPEC.md. Preserve runtime behavior and JSON format. Keep legacy viewer retirement separate.

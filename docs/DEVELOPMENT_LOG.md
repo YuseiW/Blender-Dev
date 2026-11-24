@@ -736,3 +736,14 @@ V-0実機確認: カメラ重畳の表示・透明度調整に成功（ユーザ
 - Qt操作保留／最終意図優先／設定ACKの模擬試験PASS。
 - V-1〜V-3.2契約テストの旧仕様チェックはV-4対応へ更新。
 - Blender 5.2 + Qt実機動作は**未実施**。試験成功後にPASSを追記する。
+
+
+## Phase R — package layout (2026-11-25 JST)
+
+- R-1 through R-5: user reported successful local checks. Exact per-test evidence not recorded.
+- `core/`: properties, utils; `storage/`: project_io, validation; `managers/`: six manager modules; `ipc/`: manager_ipc; `qt/`: external PySide6 Viewer and Manager.
+- `operators/` and `ui/` remain Blender-side. The root `__init__.py` remains the addon entry point.
+- Qt runs in an external Python process; shared IPC is imported without loading the Blender addon entry point.
+- No intended changes to UI, data model, JSON format or communication protocol in Phase R.
+- Legacy Image Editor viewer retirement is separate; its acceptance tests are pending, not PASS.
+- R-6: test infrastructure repair; local regression and Blender integration results pending.

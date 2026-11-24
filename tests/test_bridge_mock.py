@@ -24,11 +24,12 @@ class FakeProject:
     def __init__(self):
         self.project_name='Test';self.active_category='STORYBOARD';self.auto_sync=False
         self.active_cut_index=0
+        self.project_filepath=''
         self.cuts=[FakeCut()]
         self.images=[SimpleNamespace(uid='img1',name='one.png',filepath='/tmp/one.png')]
 
 project=FakeProject()
-scene=SimpleNamespace(name='Scene', frame_current=1,animref_project=project)
+scene=SimpleNamespace(name='Scene', frame_current=1,animref_project=project, animref_overlay_enabled=False, animref_overlay_opacity=0.5)
 window=FakePtr(321);window.scene=scene
 wm=SimpleNamespace(windows=[window])
 class FakeTimers:
@@ -72,6 +73,11 @@ io=ModuleType('anim_reference_tool.storage.project_io');io.save_project=lambda p
 timeline=ModuleType('anim_reference_tool.managers.timeline_manager');timeline.sync_reference_display=lambda s:None
 for name,mod in [('managers.image_manager',image),('managers.reference_manager',reference),('managers.cut_manager',cutmod),('storage.project_io',io),('managers.timeline_manager',timeline)]:
     sys.modules['anim_reference_tool.'+name]=mod
+
+# Isolate camera overlay; its actual logic is tested separately.
+overlay=ModuleType('anim_reference_tool.managers.camera_overlay_manager')
+overlay.sync_overlay=lambda *args, **kwargs: None
+sys.modules[overlay.__name__]=overlay
 
 # Import pure IPC and operator module with package-qualified name
 for name,path in [('anim_reference_tool.ipc.manager_ipc', ROOT/'ipc/manager_ipc.py'),('anim_reference_tool.operators.manager_external',ROOT/'operators/manager_external.py')]:
