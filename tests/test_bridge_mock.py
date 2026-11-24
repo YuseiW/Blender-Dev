@@ -4,7 +4,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import importlib.util
 
-ROOT = Path(__file__).resolve().parents[1]/'payload/scripts/addons/anim_reference_tool'
+ROOT = Path(__file__).resolve().parents[1]/'scripts/addons/anim_reference_tool'
 
 class FakePtr:
     def __init__(self, value): self.ptr=value
@@ -43,6 +43,9 @@ pkg=ModuleType('anim_reference_tool');pkg.__path__=[str(ROOT)]
 ops_pkg=ModuleType('anim_reference_tool.operators');ops_pkg.__path__=[str(ROOT/'operators')]
 sys.modules['anim_reference_tool']=pkg
 sys.modules['anim_reference_tool.operators']=ops_pkg
+storage_pkg=ModuleType('anim_reference_tool.storage')
+storage_pkg.__path__=[str(ROOT/'storage')]
+sys.modules['anim_reference_tool.storage']=storage_pkg
 
 # Stub dependencies that are irrelevant to snapshot/JSON dispatch
 image=ModuleType('anim_reference_tool.image_manager');image.add_image_asset=lambda p,path:(None,'NOT_FOUND')
@@ -62,9 +65,9 @@ reference.move_reference=move_reference
 cutmod=ModuleType('anim_reference_tool.cut_manager')
 cutmod.add_cut=lambda p:p.cuts.append(FakeCut()) or p.cuts[-1]
 cutmod.remove_cut=lambda p,i:False
-io=ModuleType('anim_reference_tool.project_io');io.save_project=lambda p,path:None;io.load_project=lambda p,path:None
+io=ModuleType('anim_reference_tool.storage.project_io');io.save_project=lambda p,path:None;io.load_project=lambda p,path:None
 timeline=ModuleType('anim_reference_tool.timeline_manager');timeline.sync_reference_display=lambda s:None
-for name,mod in [('image_manager',image),('reference_manager',reference),('cut_manager',cutmod),('project_io',io),('timeline_manager',timeline)]:
+for name,mod in [('image_manager',image),('reference_manager',reference),('cut_manager',cutmod),('storage.project_io',io),('timeline_manager',timeline)]:
     sys.modules['anim_reference_tool.'+name]=mod
 
 # Import pure IPC and operator module with package-qualified name

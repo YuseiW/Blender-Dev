@@ -1,7 +1,7 @@
 import json
 import os
 
-from .core.utils import generate_uid
+from ..core.utils import generate_uid
 from .validation import validate_project_data
 
 PROJECT_FORMAT = "AnimationReferenceProject"

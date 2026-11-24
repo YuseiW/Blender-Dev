@@ -18,7 +18,7 @@ project_io = next(
         module
         for name, module in sys.modules.items()
         if name.endswith(
-            "anim_reference_tool.project_io"
+            "anim_reference_tool.storage.project_io"
         )
     ),
     None
@@ -31,7 +31,7 @@ if project_io is None:
     )
 
 timeline_manager = importlib.import_module(
-    project_io.__package__ + ".timeline_manager"
+    project_io.__package__.rsplit(".", 1)[0] + ".timeline_manager"
 )
 
 

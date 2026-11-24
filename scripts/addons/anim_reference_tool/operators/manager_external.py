@@ -19,7 +19,7 @@ from ..reference_manager import (
     add_reference, get_reference_collection, move_reference, remove_reference,
 )
 from ..cut_manager import add_cut, remove_cut
-from ..project_io import save_project, load_project
+from ..storage.project_io import save_project, load_project
 from ..timeline_manager import sync_reference_display
 from .. import camera_overlay_manager
 

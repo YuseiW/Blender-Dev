@@ -4,7 +4,7 @@ import bpy
 from bpy.props import StringProperty
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
-from ..project_io import save_project, load_project
+from ..storage.project_io import save_project, load_project
 
 
 # ==========================================
