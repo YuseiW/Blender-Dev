@@ -74,7 +74,7 @@ for name,mod in [('managers.image_manager',image),('managers.reference_manager',
     sys.modules['anim_reference_tool.'+name]=mod
 
 # Import pure IPC and operator module with package-qualified name
-for name,path in [('anim_reference_tool.manager_ipc', ROOT/'manager_ipc.py'),('anim_reference_tool.operators.manager_external',ROOT/'operators/manager_external.py')]:
+for name,path in [('anim_reference_tool.ipc.manager_ipc', ROOT/'ipc/manager_ipc.py'),('anim_reference_tool.operators.manager_external',ROOT/'operators/manager_external.py')]:
     spec=importlib.util.spec_from_file_location(name,path)
     mod=importlib.util.module_from_spec(spec);sys.modules[name]=mod;spec.loader.exec_module(mod)
 bridge=sys.modules['anim_reference_tool.operators.manager_external']

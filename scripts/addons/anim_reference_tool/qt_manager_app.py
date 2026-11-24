@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QListWidget, QListWidgetItem, QComboBox, QSpinBox,
     QPlainTextEdit, QFileDialog, QMessageBox, QFrame, QSplitter,
 )
-from manager_ipc import read_json, write_json_atomic
+from ipc.manager_ipc import read_json, write_json_atomic
 from qt_viewer_page import ViewerPage
 
 

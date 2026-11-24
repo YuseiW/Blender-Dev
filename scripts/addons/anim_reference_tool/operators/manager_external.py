@@ -13,7 +13,7 @@ import tempfile
 
 import bpy
 
-from ..manager_ipc import read_json, write_json_atomic
+from ..ipc.manager_ipc import read_json, write_json_atomic
 from ..managers.image_manager import add_image_asset
 from ..managers.reference_manager import (
     add_reference, get_reference_collection, move_reference, remove_reference,
