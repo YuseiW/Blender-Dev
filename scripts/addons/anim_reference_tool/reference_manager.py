@@ -1,4 +1,4 @@
-from .utils import generate_uid
+from .core.utils import generate_uid
 
 
 CATEGORY_COLLECTIONS = {

@@ -9,7 +9,7 @@ bl_info = {
 }
 
 
-from . import properties
+from .core import properties
 from . import operators
 from . import ui
 from . import timeline_manager

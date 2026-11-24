@@ -1,7 +1,7 @@
 import os
 import bpy
 
-from .utils import generate_uid
+from .core.utils import generate_uid
 from .viewer_manager import find_viewer_window
 
 SUPPORTED_EXTENSIONS = {

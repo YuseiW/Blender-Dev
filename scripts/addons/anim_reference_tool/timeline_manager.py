@@ -3,7 +3,7 @@ import bpy
 from bpy.app.handlers import persistent
 
 from .reference_manager import get_reference_collection
-from .utils import find_image_by_uid
+from .core.utils import find_image_by_uid
 from .viewer_manager import find_viewer_window
 
 from .image_manager import (
