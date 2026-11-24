@@ -301,6 +301,17 @@ def register():
     )
 
 
+def end_session():
+    """Disable overlay for all Scenes and retire only AnimRef-owned slots."""
+    for scene in bpy.data.scenes:
+        if getattr(scene, 'animref_overlay_enabled', False):
+            scene.animref_overlay_enabled = False
+    for camera in bpy.data.cameras:
+        _retire_foreign_slots(camera, None)
+        _restore_visibility_if_empty(camera)
+    _RUNTIME.clear()
+
+
 def unregister():
     for scene in bpy.data.scenes:
         clear_overlay(scene)

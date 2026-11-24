@@ -141,3 +141,8 @@ UI → Operator → Manager → Data
 ## Phase R: package separation
 
 Adopt the responsibility-based package layout described in CURRENT_SPEC.md. Preserve runtime behavior and JSON format. Keep legacy viewer retirement separate.
+
+
+## R-7.1 — Qt session shutdown
+
+Qt process exit disables camera overlay for all Scenes and removes only AnimRef-owned slots, including orphaned slots. Opacity and project data are preserved. Reopening Qt starts with overlay OFF. Mock and Blender verification pending.

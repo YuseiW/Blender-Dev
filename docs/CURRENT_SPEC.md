@@ -200,3 +200,8 @@ Blenderの別ウィンドウに、現在フレームに
 - No intended changes to UI, data model, JSON format or communication protocol in Phase R.
 - Legacy Image Editor viewer retirement is separate; its acceptance tests are pending, not PASS.
 - R-6: test infrastructure repair; local regression and Blender integration results pending.
+
+
+## R-7.1 — Qt session shutdown
+
+Qt process exit disables camera overlay for all Scenes and removes only AnimRef-owned slots, including orphaned slots. Opacity and project data are preserved. Reopening Qt starts with overlay OFF. Mock and Blender verification pending.

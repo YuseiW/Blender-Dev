@@ -398,13 +398,17 @@ def _pump():
 def _cleanup():
     global _process, _session_dir, _source_window_pointer
     global _last_live_signature, _last_live_error
-    _last_live_signature = None
-    _last_live_error = None
-    _process = None
-    _source_window_pointer = None
-    if _session_dir is not None:
-        shutil.rmtree(_session_dir, ignore_errors=True)
-        _session_dir = None
+    try:
+        if _process is not None or _session_dir is not None:
+            camera_overlay_manager.end_session()
+    finally:
+        _last_live_signature = None
+        _last_live_error = None
+        _process = None
+        _source_window_pointer = None
+        if _session_dir is not None:
+            shutil.rmtree(_session_dir, ignore_errors=True)
+            _session_dir = None
 
 
 def _stop():

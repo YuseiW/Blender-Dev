@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 import sys
 ROOT=Path(__file__).resolve().parents[1]
-TESTS=("test_bridge_mock.py", "test_phase_v5_contract.py", "test_qt_save_reorder_contract.py", "test_reference_autoscroll.py")
+TESTS=("test_bridge_mock.py", "test_phase_v5_contract.py", "test_qt_save_reorder_contract.py", "test_reference_autoscroll.py", "test_qt_shutdown_overlay.py")
 if __name__ == "__main__":
     failed=[]
     for name in TESTS:
