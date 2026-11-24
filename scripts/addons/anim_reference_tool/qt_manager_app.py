@@ -4,6 +4,7 @@ Start through Blender's '資料管理ツールを開く' button.  --demo permits
 checking the layout without a Blender connection.
 """
 import argparse
+import json
 import os
 import sys
 import time
@@ -13,11 +14,12 @@ from uuid import uuid4
 from PySide6.QtCore import Qt, QSize, QTimer, Signal, QMimeData, QSignalBlocker
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen, QDrag, QFont
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGridLayout,
+    QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QStackedWidget,
     QLabel, QPushButton, QListWidget, QListWidgetItem, QComboBox, QSpinBox,
     QPlainTextEdit, QFileDialog, QMessageBox, QFrame, QSplitter,
 )
 from manager_ipc import read_json, write_json_atomic
+from qt_viewer_page import ViewerPage
 
 
 COLORS = {
@@ -373,12 +375,36 @@ class RefRow(QFrame):
         h.addLayout(data, 1)
 
 
+# UI_V3_TIMELINE_LIVE_CLIENT
+
+def manager_data_key(state):
+    """Ignore playback-only changes when deciding to redraw Manager widgets."""
+    if not state:
+        return None
+    return json.dumps({k: v for k, v in state.items()
+                       if k not in ('frame', 'auto_sync', 'overlay_enabled', 'overlay_opacity')},
+                      ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+
+
 class ManagerWindow(QMainWindow):
     def __init__(self, session_dir=None, demo=False):
         super().__init__()
         self.session_dir = Path(session_dir) if session_dir else None
         self.demo = demo
         self.state = None
+        self._live_mtime_ns = None
+        self._last_live_state_at = 0.0
+        self._last_viewer_probe_at = 0.0
+        self._viewer_probe_pending = False
+        self._queued_viewer_command = None
+        self._queued_sync_enabled = None  # UI_V3_2_SYNC_INTENT_QUEUE
+        self._sync_request_id = None
+        self._queued_overlay_enabled = None  # UI_V4_CAMERA_OVERLAY
+        self._queued_overlay_opacity = None
+        self._overlay_request_id = None
+        self._overlay_request_kind = None
+        self._manager_data_key = None
+        self._manager_needs_render = False
         self.pending = None
         self.pending_since = 0.0
         self.last_response = time.monotonic()
@@ -389,6 +415,7 @@ class ManagerWindow(QMainWindow):
         self.setMinimumSize(900, 560)
         self.setStyleSheet(STYLE)
         self._setup_ui()
+        self._setup_page_switcher()
         self.poller = QTimer(self)
         self.poller.timeout.connect(self._poll)
         self.poller.start(180)
@@ -538,6 +565,138 @@ class ManagerWindow(QMainWindow):
         self.status.setObjectName("status")
         full.addWidget(self.status)
 
+    # UI_QT_VIEWER_STACK_V1
+    def _setup_page_switcher(self):
+        """Wrap the existing manager widget without recreating its controls.
+
+        The manager's original central widget remains alive in the stack; this
+        protects reference-list scroll position, D&D connections and form state.
+        """
+        manager_page = self.takeCentralWidget()
+        if manager_page is None:
+            raise RuntimeError("Manager page not initialized")
+        shell = QWidget()
+        outer = QVBoxLayout(shell)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        navigation = QFrame()
+        nav_layout = QHBoxLayout(navigation)
+        nav_layout.setContentsMargins(16, 8, 16, 8)
+        nav_layout.addWidget(QLabel("AnimRef"))
+        self.viewer_nav = QPushButton("閲覧（Viewer）")
+        self.manager_nav = QPushButton("登録・編集（Manager）")
+        for button in (self.viewer_nav, self.manager_nav):
+            button.setCheckable(True)
+            nav_layout.addWidget(button)
+        nav_layout.addStretch(1)
+        outer.addWidget(navigation)
+
+        self._viewer_page = ViewerPage()
+        self._viewer_page.categoryRequested.connect(
+            lambda category: self.command("select_category", category=category)
+        )
+        self._viewer_page.refreshRequested.connect(
+            lambda: self.command("refresh_viewer")
+        )
+        self._viewer_page.syncRequested.connect(self._request_auto_sync)
+        self._viewer_page.cutRequested.connect(self._request_viewer_cut)
+        self._viewer_page.overlayRequested.connect(self._request_overlay_enabled)
+        self._viewer_page.opacityRequested.connect(self._request_overlay_opacity)
+        self._pages = QStackedWidget()
+        self._pages.addWidget(self._viewer_page)
+        self._pages.addWidget(manager_page)
+        outer.addWidget(self._pages, 1)
+        self.setCentralWidget(shell)
+        self._manager_page = manager_page
+        self.viewer_nav.clicked.connect(lambda: self._set_page("viewer"))
+        self.manager_nav.clicked.connect(lambda: self._set_page("manager"))
+        # Initially retain the familiar registration screen during migration.
+        self._set_page("manager", refresh=False)
+        self.setWindowTitle("AnimRef — Viewer / Manager")
+
+    def _set_page(self, page, refresh=True):
+        """Switch views without destroying Manager state or losing unsaved edits."""
+        if page == "viewer":
+            # A response snapshot re-renders the manager editor. Do not silently
+            # replace unsaved duration/instruction text as we switch pages.
+            if self._editor_update_for_save() is not None:
+                QMessageBox.information(
+                    self,
+                    "未保存の編集内容",
+                    "表示尺・指示文の変更を先に保存してからViewerへ切り替えてください。",
+                )
+                self.manager_nav.setChecked(True)
+                self.viewer_nav.setChecked(False)
+                return
+            self._pages.setCurrentWidget(self._viewer_page)
+            self.viewer_nav.setChecked(True)
+            self.manager_nav.setChecked(False)
+            if self.state is not None:
+                self._viewer_page.set_snapshot(self.state)
+            if refresh and not self.demo and not self.pending:
+                self.command("snapshot")
+        else:
+            self._pages.setCurrentWidget(self._manager_page)
+            self.viewer_nav.setChecked(False)
+            self.manager_nav.setChecked(True)
+            if self.state is not None and getattr(self, '_manager_needs_render', False):
+                # Restore new Blender-side changes only when data changed;
+                # Timeline ticks alone must not reset Manager scrolling.
+                self._render()
+
+    def _request_viewer_cut(self, index):
+        if not self.state:
+            return
+        cuts = self.state.get('cuts', [])
+        if not isinstance(index, int) or not 0 <= index < len(cuts):
+            self._set_status('カットを選択できませんでした', True)
+            return
+        if index != self.state.get('active_cut_index'):
+            self.command('select_cut', index=index)
+
+    def _request_auto_sync(self, enabled):
+        """Qt owns sync *interaction*; Blender Project is the source of truth.
+
+        Queue the most recent user intent across all in-flight requests,
+        including V-3.1's background snapshot probe. Never silently discard a
+        toggle or let a stale notification flip it back before acknowledgement.
+        """
+        if self.demo:
+            return
+        if self.state is None:
+            self._set_status('Blenderへの接続を確認してください', True)
+            return
+        wanted = bool(enabled)
+        self._viewer_page._sync_pending = wanted
+        if self.pending:
+            self._queued_sync_enabled = wanted
+            self._set_status('自動同期の切替を予約しました')
+            return
+        self.command('set_auto_sync', enabled=wanted)
+        if self.pending:
+            self._sync_request_id = self.pending
+            self._set_status('自動同期の設定をBlenderへ反映中…')
+        else:
+            # Request creation failed; do not leave an unconfirmed setting.
+            self._viewer_page._sync_pending = None
+            self._viewer_page.set_snapshot(self.state)
+
+    def _request_overlay_enabled(self, enabled):
+        if self.demo or self.state is None:
+            return
+        wanted = bool(enabled)
+        self._viewer_page._overlay_pending = wanted
+        self._queued_overlay_enabled = wanted
+        self._set_status('カメラ重畳の切替を予約しました')
+
+    def _request_overlay_opacity(self, percent):
+        if self.demo or self.state is None:
+            return
+        wanted = max(0, min(100, int(percent)))
+        self._viewer_page._opacity_pending = wanted
+        self._queued_overlay_opacity = wanted
+
     def _set_status(self, text, error=False):
         self.status.setText(text)
         self.status.setStyleSheet("color: #ff9999" if error else "color: #b6b3ce")
@@ -547,6 +706,11 @@ class ManagerWindow(QMainWindow):
             self._set_status("デモモードは読み取り専用です")
             return
         if self.pending:
+            if self._viewer_probe_pending and self._queued_viewer_command is None:
+                # User commands take priority over the background snapshot probe.
+                # Run them after its response without dropping the user's click.
+                self._queued_viewer_command = (action, args)
+                return
             self._set_status("前の操作を処理中です")
             return
         ident = uuid4().hex
@@ -563,29 +727,198 @@ class ManagerWindow(QMainWindow):
         self._set_status("Blenderで処理中…")
 
     def _poll(self):
-        if self.demo or not self.pending:
+        if self.demo:
+            return
+        if not self.pending:
+            if getattr(self, '_queued_sync_enabled', None) is not None:
+                wanted = self._queued_sync_enabled
+                self._queued_sync_enabled = None
+                # A prior command may already have applied the final intent.
+                if self.state is not None and bool(self.state.get('auto_sync')) == wanted:
+                    self._viewer_page._sync_pending = None
+                    self._viewer_page.set_snapshot(self.state)
+                else:
+                    self._request_auto_sync(wanted)
+                return
+            if getattr(self, '_queued_overlay_enabled', None) is not None:
+                wanted = self._queued_overlay_enabled
+                self._queued_overlay_enabled = None
+                if self.state is not None and bool(self.state.get('overlay_enabled', False)) == wanted:
+                    self._viewer_page._overlay_pending = None
+                    self._viewer_page.set_snapshot(self.state)
+                else:
+                    self.command('set_overlay_enabled', enabled=wanted)
+                    if self.pending:
+                        self._overlay_request_id = self.pending
+                        self._overlay_request_kind = 'enabled'
+                return
+            if getattr(self, '_queued_overlay_opacity', None) is not None:
+                wanted = self._queued_overlay_opacity
+                self._queued_overlay_opacity = None
+                actual = round(100 * float(self.state.get('overlay_opacity', 0.5))) if self.state else None
+                if actual == wanted:
+                    self._viewer_page._opacity_pending = None
+                    self._viewer_page.set_snapshot(self.state)
+                else:
+                    self.command('set_overlay_opacity', percent=wanted)
+                    if self.pending:
+                        self._overlay_request_id = self.pending
+                        self._overlay_request_kind = 'opacity'
+                return
+            if self._queued_viewer_command is not None:
+                action, args = self._queued_viewer_command
+                self._queued_viewer_command = None
+                self.command(action, **args)
+                return
+            self._poll_live_state()
+            self._poll_viewer_snapshot_fallback()
             return
         path = self.session_dir / "responses" / (self.pending + ".json")
         if path.exists():
             try:
                 data = read_json(path)
                 path.unlink(missing_ok=True)
+                is_sync_response = self.pending == getattr(self, '_sync_request_id', None)
+                is_overlay_response = self.pending == getattr(self, '_overlay_request_id', None)
+                overlay_kind = self._overlay_request_kind if is_overlay_response else None
                 self.pending = None
                 self.last_response = time.monotonic()
+                was_probe = self._viewer_probe_pending
+                self._viewer_probe_pending = False
                 if data.get("ok") and isinstance(data.get("state"), dict):
-                    self.state = data["state"]
-                    self._render()
-                    self._set_status(data.get("message", "更新しました"))
+                    incoming = data["state"]
+                    if was_probe and self._pages.currentWidget() is self._viewer_page:
+                        # Silent fallback poll must NEVER reset Manager edit controls.
+                        if incoming != self.state:
+                            self.state = incoming
+                            self._manager_needs_render = (
+                                manager_data_key(incoming) != self._manager_data_key
+                            )
+                            self._viewer_page.set_snapshot(incoming)
+                            status_label = getattr(self._viewer_page, 'status', None)
+                            if status_label is not None:
+                                status_label.setText('同期経路：Snapshot補完（V-3.1）')
+                    else:
+                        self.state = incoming
+                        self._render()
+                        self._set_status(data.get("message", "更新しました"))
                 else:
                     self._set_status(data.get("message", "処理に失敗しました"), True)
-                    if self.state and "Scene" in data.get("message", ""):
+                    if not was_probe and self.state and "Scene" in data.get("message", ""):
                         QTimer.singleShot(100, lambda: self.command("snapshot"))
+                if is_sync_response:
+                    self._sync_request_id = None
+                    if not data.get('ok'):
+                        self._queued_sync_enabled = None
+                        self._viewer_page._sync_pending = None
+                        if self.state is not None:
+                            self._viewer_page.set_snapshot(self.state)
+                    elif self._queued_sync_enabled is None:
+                        # Only clear the optimistic state after Blender ACK.
+                        self._viewer_page._sync_pending = None
+                        self._viewer_page.set_snapshot(self.state)
+                if is_overlay_response:
+                    self._overlay_request_id = None
+                    self._overlay_request_kind = None
+                    if not data.get('ok'):
+                        self._queued_overlay_enabled = None
+                        self._queued_overlay_opacity = None
+                    if overlay_kind == 'enabled' and self._queued_overlay_enabled is None:
+                        self._viewer_page._overlay_pending = None
+                    if overlay_kind == 'opacity' and self._queued_overlay_opacity is None:
+                        self._viewer_page._opacity_pending = None
+                    if self.state is not None:
+                        self._viewer_page.set_snapshot(self.state)
             except (ValueError, OSError) as exc:
+                if self.pending == getattr(self, '_overlay_request_id', None):
+                    self._overlay_request_id = None
+                    self._overlay_request_kind = None
+                    self._queued_overlay_enabled = None
+                    self._queued_overlay_opacity = None
+                    self._viewer_page._overlay_pending = None
+                    self._viewer_page._opacity_pending = None
+                if self.pending == getattr(self, '_sync_request_id', None):
+                    self._sync_request_id = None
+                    self._queued_sync_enabled = None
+                    self._viewer_page._sync_pending = None
+                    if self.state is not None:
+                        self._viewer_page.set_snapshot(self.state)
                 self.pending = None
+                self._viewer_probe_pending = False
                 self._set_status(f"応答の読み取り失敗: {exc}", True)
         elif time.monotonic() - self.pending_since > 30:
+            if self.pending == getattr(self, '_overlay_request_id', None):
+                self._overlay_request_id = None
+                self._overlay_request_kind = None
+                self._queued_overlay_enabled = None
+                self._queued_overlay_opacity = None
+                self._viewer_page._overlay_pending = None
+                self._viewer_page._opacity_pending = None
+                if self.state is not None:
+                    self._viewer_page.set_snapshot(self.state)
+            if self.pending == getattr(self, '_sync_request_id', None):
+                self._sync_request_id = None
+                self._queued_sync_enabled = None
+                self._viewer_page._sync_pending = None
+                if self.state is not None:
+                    self._viewer_page.set_snapshot(self.state)
             self.pending = None
+            self._viewer_probe_pending = False
             self._set_status("Blenderから応答がありません。Blenderが起動中か確認してください。", True)
+
+    # UI_V3_1_VIEWER_POLL_FALLBACK
+    def _poll_viewer_snapshot_fallback(self):
+        """Request a fresh Blender snapshot if the live notification is stalled.
+
+        Keeps compatibility with older Blender bridge modules that only support
+        the existing request/response protocol. Only used while Viewer is visible.
+        It is intentionally silent and never redraws the Manager form.
+        """
+        if (self.demo or self.session_dir is None or self.pending or
+                self._pages.currentWidget() is not self._viewer_page):
+            return
+        now = time.monotonic()
+        if now - self._last_live_state_at < 0.9:
+            return
+        if now - self._last_viewer_probe_at < 0.75:
+            return
+        self._last_viewer_probe_at = now
+        ident = uuid4().hex
+        request = {"id": ident, "action": "snapshot", "args": {}}
+        try:
+            write_json_atomic(self.session_dir / "requests" / (ident + ".json"), request)
+        except (OSError, ValueError) as exc:
+            self._set_status(f"同期確認の送信に失敗: {exc}", True)
+            return
+        self.pending = ident
+        self.pending_since = now
+        self._viewer_probe_pending = True
+
+    def _poll_live_state(self):
+        """Read the Blender-published snapshot only while Viewer is visible."""
+        if (self.session_dir is None or self.pending or
+                self._pages.currentWidget() is not self._viewer_page):
+            return
+        path = self.session_dir / 'state' / 'latest.json'
+        try:
+            mtime = path.stat().st_mtime_ns
+            if mtime == self._live_mtime_ns:
+                return
+            result = read_json(path)
+            new_state = result.get('state') if isinstance(result, dict) else None
+            if not isinstance(new_state, dict):
+                return
+        except (OSError, ValueError):
+            # The state file may not yet exist, or may be replaced by Blender.
+            return
+        self._live_mtime_ns = mtime
+        self._last_live_state_at = time.monotonic()
+        self.state = new_state
+        self._manager_needs_render = manager_data_key(new_state) != self._manager_data_key
+        self._viewer_page.set_snapshot(new_state)
+        status_label = getattr(self._viewer_page, 'status', None)
+        if status_label is not None:
+            status_label.setText('同期経路：ライブ通知（V-3.1）')
 
     def _current_cut(self):
         if not self.state:
@@ -642,6 +975,10 @@ class ManagerWindow(QMainWindow):
         finally:
             self.ref_list.blockSignals(False)
         self._ref_changed(self.ref_list.currentRow())
+        if hasattr(self, "_viewer_page"):
+            self._viewer_page.set_snapshot(s)
+        self._manager_data_key = manager_data_key(s)
+        self._manager_needs_render = False
 
     def _cut_changed(self, index):
         if index >= 0:

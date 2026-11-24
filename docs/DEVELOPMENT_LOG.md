@@ -669,3 +669,70 @@ Blender標準の独立ウィンドウを生成する。
 #### Gitコミット
 
 #### 次のタスク
+
+## 2026-11-17
+### Phase V-1 / QtのViewerとManager画面統合
+
+実装前確認: Blender Phase2-AのViewer/Timeline同期は動作済み。Qt ManagerのExplorer D&D・並べ替え・上書き保存・自動スクロールはユーザー動作確認済み。
+V-0実機確認: カメラ重畳の表示・透明度調整に成功（ユーザー報告）。
+
+変更予定／変更内容:
+- qt_manager_app.pyにQStackedWidgetと画面ナビゲーションを追加。
+- qt_viewer_page.pyを新規作成。閲覧専用のメイン画像・指示文・登録資料一覧・カテゴリ切替を初期表示。
+- Managerの既存UIとIPC、Blender側Bridge、Blender標準ビュアーは維持。
+
+状態: Python構文・ロジックテスト済み／Blender + Windows Qt実機確認待ち。
+未実装: V-3継続Timeline同期、V-4カメラ重畳接続、不透明度スライダー操作。
+
+## 2026-11-17
+### Phase V-2 / Viewer表示と操作性
+
+実装前: Phase V-1 同一ウィンドウ切替をユーザーが実機で動作確認済み。Blenderカメラ重畳POCも表示・透明度変更に成功。
+
+変更: qt_viewer_page.pyのみ。QGraphicsViewの拡大縮小・パン・全体表示・100%表示、カテゴリ色による現在資料の強調、一覧の無駄な再構築防止、必要時のみ自動スクロール。
+維持: 既存Manager GUI、JSON IPC、Blenderアドオンのデータモデル・Timeline同期・標準ビュアー。
+未実装: Phase V-3の継続Timeline同期、Phase V-4のカメラ重畳接続。
+
+検証: Python構文・選択ロジック・ズーム境界・更新署名・後方互換の静的テストを実施。Windows実機でのViewer操作は適用後の確認待ち。
+
+## 2026-11-17
+### Phase V-3 / Blender Timeline 継続同期
+
+事前確認：V-0カメラ重畳POCの画像表示・透明度、V-1画面統合、V-2表示操作6項目について実機PASS（ユーザー報告）。
+
+変更予定/実装：`qt_viewer_page.py` に停止中の表示フレーム保持と自動同期スイッチ、`qt_manager_app.py` にライブ通知読取とManager非干渉更新、`operators/manager_external.py` に定期状態配信とset_auto_syncコマンドを追加。
+
+通信：既存JSON要求/応答経路を維持し、独立した `state/latest.json` をアトミック更新する。Blender timerからのみbpyにアクセスする。
+
+テスト：Phase V-3の契約テストを実行。実機結果はユーザー確認後追記する。
+
+未対応：Phase V-4のカメラ重畳本体連携。旧標準ビュアー削除判断はV-5まで保留。
+
+## 2026-11-17
+### Phase V-3.1 / Viewer同期不具合修正
+- ユーザー報告：Phase V-3でTimelineを動かしてもViewerが追従しない。追加要件：Viewerからカットを切替可能にする。
+- 点検結果：Qtライブ受信がstate/latest.jsonに依存しており、通知が来ない場合の復旧経路がなかった。原因の特定にはBlender実機ログが必要。
+- 修正：snapshotを低頻度で再要求する補完経路、Viewerカット選択、通知経路の表示。
+- 検証：通知ファイルが存在しない状態でsnapshotによりフレーム更新可能な模擬試験PASS。V-1/V-2/V-3既存契約テストPASS。
+- 実機検証：未実施。ユーザー報告を待つ。
+
+## 2026-11-17
+### Phase V-3.2 / 同期操作の一本化と旧UI整理
+- V-3.1実機報告：おおむね正常。旧Nパネルの自動同期設定とQtスイッチに優先関係があるように見える。
+- 点検：Qt側で通信中に同期スイッチを押すと、送信されずチェック表示を戻す分岐を確認。
+- 対処：Qtの同期意図を通信空きまで保留・最終操作へ集約。Blender ACKまたは失敗時に表示を確定。
+- 3D View Nパネルは外部AnimRefの起動専用に変更。Reference Editorパネル登録を解除（ファイルは保存）。
+- 旧Image Editorビュアーは維持。Python契約試験とV-1/V-2/V-3/V-3.1回帰試験を実施予定。
+- Windows + Blender実機での挙動は未実施。
+
+## 2026-11-17 Phase V-4（実機確認待ち）
+
+- ユーザーからV-3.2の6項目すべて成功を確認。
+- Blender背景画像方式のPoC（V-0実機成功）をaddonのcamera_overlay_manager.pyへ統合。
+- Qt Viewerのカメラ重畳ON/OFFと不透明度スライダーを有効化、送信の連打を抑制。
+- Blender側IPCのset_overlay_enabled / set_overlay_opacity / refresh_viewerを追加。
+- Timelineフレーム変更Handlerから重畳も更新。Qt起動中はtimerでも状態を整合。
+- ユーザー既存のカメラ背景画像の保護、画像解放、フレーム追従・固定表示の模擬試験PASS。
+- Qt操作保留／最終意図優先／設定ACKの模擬試験PASS。
+- V-1〜V-3.2契約テストの旧仕様チェックはV-4対応へ更新。
+- Blender 5.2 + Qt実機動作は**未実施**。試験成功後にPASSを追記する。

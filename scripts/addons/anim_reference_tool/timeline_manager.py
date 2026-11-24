@@ -334,6 +334,14 @@ def on_frame_change(scene, depsgraph=None):
             error
         )
 
+    # V-4: camera overlay follows Timeline even if Qt has been closed.
+    # It never touches the user's unrelated camera background images.
+    try:
+        from .camera_overlay_manager import frame_changed
+        frame_changed(scene)
+    except Exception as error:
+        print("[AnimRef] Camera overlay sync error:", error)
+
 
 # ============================================================
 # Handler Registration

@@ -95,7 +95,7 @@ UI → Operator → Manager → Data
 ## D-005 PySide6管理GUIの採用
 
 決定日: 2026-11-11
-状態: 採用・初期実装（Blender実機確認待ち）
+状態: 採用・Manager GUI実機確認済み
 
 ### 変更点
 - D-001の「独立したWindows GUIを作らない」判断を、管理UIに限って変更する。
@@ -113,3 +113,26 @@ UI → Operator → Manager → Data
 - 外部Python環境にPySide6のインストールが必要。
 - .blend切り替え後はGUIを閉じて再接続する。
 - Phase 2-Aの独立リファレンスビュアーの方式は変更しない。
+
+## D-006 Qt内Viewer/Manager画面切替
+
+決定日: 2026-11-17
+状態: 採用・V-1実機検証待ち
+
+- Viewerと既存Managerは同一PySide6ウィンドウで切替える。
+- 編集はManager側のみで行う。Viewerは読み取り専用。
+- Qt Managerが一元的にJSON通信・状態管理し、ViewerはそのSnapshotを参照する。
+- 既存Blender標準ビュアーは新Viewer完成まで削除しない。
+- カメラ重畳はBlender側機能として別工程で実装する。
+
+
+## D-006 Viewerライブ状態通知チャネル
+
+決定日：2026-11-17
+状態：採用・Phase V-3実機検証待ち
+
+- Blender timerが最新スナップショットをstate/latest.jsonへアトミックに発行する。
+- データ変更時のみ更新し、Qt Viewerだけがライブ通知で表示を更新する。
+- Managerの資料編集UIをフレーム変更で再描画しない。
+- 既存JSON要求/応答チャネルとBlender標準ビュアーを維持する。
+- Blenderのカメラ重畳接続はV-4へ分離。

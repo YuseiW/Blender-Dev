@@ -3,6 +3,7 @@
 Blender data is touched ONLY in the Blender main-thread timer callback.
 The Qt application is a separate Python process with no bpy imports.
 """
+import json
 import os
 from pathlib import Path
 import shutil
@@ -20,11 +21,14 @@ from ..reference_manager import (
 from ..cut_manager import add_cut, remove_cut
 from ..project_io import save_project, load_project
 from ..timeline_manager import sync_reference_display
+from .. import camera_overlay_manager
 
 
 _process = None
 _session_dir = None
 _source_window_pointer = None
+_last_live_signature = None
+_last_live_error = None
 
 
 def _python_commands():
@@ -128,11 +132,14 @@ def _snapshot():
         })
     return {
         "scene": scene.name,
+        "scene_token": str(scene.as_pointer()) if hasattr(scene, "as_pointer") else scene.name,
         "frame": scene.frame_current,
         "project": project.project_name,
         # UI_BRIDGE_SAVE_REORDER_V1
         "project_filepath": project.project_filepath,
         "auto_sync": project.auto_sync,
+        "overlay_enabled": scene.animref_overlay_enabled,  # UI_V4_CAMERA_OVERLAY
+        "overlay_opacity": scene.animref_overlay_opacity,
         "active_category": project.active_category,
         "active_cut_index": project.active_cut_index,
         "cuts": cuts,
@@ -164,6 +171,29 @@ def _process_request(request):
     message = "更新しました"
     if action == "snapshot":
         message = "Blenderに接続しました"
+    elif action == "set_auto_sync":
+        enabled = args.get("enabled")
+        if not isinstance(enabled, bool):
+            raise ValueError("自動同期はON/OFFで指定してください")
+        project.auto_sync = enabled
+        if enabled:
+            _refresh_display(scene)
+        message = "自動同期をONにしました" if enabled else "自動同期をOFFにしました"
+    elif action == "set_overlay_enabled":
+        enabled = args.get('enabled')
+        if not isinstance(enabled, bool):
+            raise ValueError('カメラ重畳はON/OFFで指定してください')
+        status = camera_overlay_manager.set_enabled(scene, enabled)
+        message = f'カメラ重畳: {status}'
+    elif action == "set_overlay_opacity":
+        percent = args.get('percent')
+        if type(percent) is not int or not 0 <= percent <= 100:
+            raise ValueError('不透明度は0〜100の整数で指定してください')
+        camera_overlay_manager.set_opacity(scene, percent / 100.0)
+        message = f'重畳不透明度を{percent}%に変更しました'
+    elif action == "refresh_viewer":
+        camera_overlay_manager.sync_overlay(scene, explicit=True)
+        message = '現在フレームの資料を更新しました'
     elif action == "select_cut":
         index = int(args.get("index", -1))
         if not 0 <= index < len(project.cuts):
@@ -301,7 +331,44 @@ def _process_request(request):
     else:
         raise ValueError("Unsupported action: " + str(action))
 
+    # Explicit changes in Manager/Viewer must also update a held overlay
+    # when the Cut/Category has changed (but not on mere Timeline movement).
+    if action not in {'snapshot', 'set_overlay_enabled',
+                      'set_overlay_opacity', 'refresh_viewer'}:
+        camera_overlay_manager.sync_overlay(scene)
     return {"ok": True, "message": message, "state": _snapshot()}
+
+
+# UI_V3_TIMELINE_LIVE_PUBLISH
+
+def _publish_viewer_state(root):
+    """Publish only changed state. The main-thread Blender timer owns bpy.
+
+    This independent, atomic file doesn't occupy Qt's command slot and does
+    not trigger redraws of the Manager editor while a Viewer is visible.
+    """
+    global _last_live_signature, _last_live_error
+    try:
+        # Also update the camera overlay while Qt is running; no bpy on Qt.
+        try:
+            _, scene = _current_window_and_scene()
+            camera_overlay_manager.sync_overlay(scene)
+        except Exception as overlay_error:
+            # A camera/asset problem must not stop Timeline state publishing.
+            print('[AnimRef][Overlay] Warning:', overlay_error)
+        state = _snapshot()
+        signature = json.dumps(state, sort_keys=True, ensure_ascii=False,
+                               separators=(',', ':'))
+        if signature != _last_live_signature:
+            write_json_atomic(Path(root) / 'state' / 'latest.json',
+                              {'schema': 1, 'state': state})
+            _last_live_signature = signature
+        _last_live_error = None
+    except Exception as exc:
+        error = str(exc)
+        if error != _last_live_error:
+            print('[AnimRef][Qt Viewer] Live state warning:', error)
+            _last_live_error = error
 
 
 def _pump():
@@ -324,11 +391,15 @@ def _pump():
             write_json_atomic(root / "responses" / (request_id + ".json"), response)
         finally:
             req_file.unlink(missing_ok=True)
+    _publish_viewer_state(root)
     return 0.25
 
 
 def _cleanup():
     global _process, _session_dir, _source_window_pointer
+    global _last_live_signature, _last_live_error
+    _last_live_signature = None
+    _last_live_error = None
     _process = None
     _source_window_pointer = None
     if _session_dir is not None:
@@ -389,9 +460,11 @@ class ANIMREF_OT_OpenExternalManager(bpy.types.Operator):
 
 
 def register():
+    camera_overlay_manager.register()
     bpy.utils.register_class(ANIMREF_OT_OpenExternalManager)
 
 
 def unregister():
     _stop()
     bpy.utils.unregister_class(ANIMREF_OT_OpenExternalManager)
+    camera_overlay_manager.unregister()
