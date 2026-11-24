@@ -3,11 +3,11 @@ import os
 import unicodedata
 import bpy
 
-from ..timeline_manager import (
+from ..managers.timeline_manager import (
     resolve_reference_at_frame,
 )
 
-from ..viewer_manager import (
+from ..managers.viewer_manager import (
     find_viewer_window,
 )
 

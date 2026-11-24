@@ -132,7 +132,7 @@ def test_orphan_cleanup():
 
 
 def test_source_contract():
-    p = ADDON/'camera_overlay_manager.py'
+    p = ADDON/'managers/camera_overlay_manager.py'
     code = p.read_text(encoding='utf-8')
     ast.parse(code, filename=str(p))
     assert 'def _retire_foreign_slots(' in code

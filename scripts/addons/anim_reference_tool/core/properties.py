@@ -150,7 +150,7 @@ def update_reference_selection(self, context):
 
     try:
         # 循環importを防ぐため関数内でimport
-        from ..timeline_manager import (
+        from ..managers.timeline_manager import (
             sync_reference_display
         )
 

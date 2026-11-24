@@ -1,6 +1,6 @@
 import bpy
 
-from ..timeline_manager import (
+from ..managers.timeline_manager import (
     sync_reference_display,
 )
 

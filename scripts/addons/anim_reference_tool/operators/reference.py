@@ -2,7 +2,7 @@ import bpy
 
 from bpy.props import EnumProperty
 
-from ..reference_manager import (
+from ..managers.reference_manager import (
     add_reference,
     remove_reference,
     move_reference,

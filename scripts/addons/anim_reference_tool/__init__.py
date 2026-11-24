@@ -12,7 +12,7 @@ bl_info = {
 from .core import properties
 from . import operators
 from . import ui
-from . import timeline_manager
+from .managers import timeline_manager
 
 
 def register():

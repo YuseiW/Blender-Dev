@@ -11,8 +11,8 @@ OLD=(
 REQUIRED=(
  'ui/__init__.py','operators/__init__.py','ui/main_panel.py',
  'qt_manager_app.py','qt_viewer_page.py','operators/manager_external.py',
- 'camera_overlay_manager.py','timeline_manager.py','image_manager.py',
- 'viewer_manager.py',
+ 'managers/camera_overlay_manager.py','managers/timeline_manager.py','managers/image_manager.py',
+ 'managers/viewer_manager.py',
 )
 
 
@@ -26,7 +26,7 @@ def main():
     ui=(ADDON/'ui/__init__.py').read_text(encoding='utf-8-sig')
     ops=(ADDON/'operators/__init__.py').read_text(encoding='utf-8-sig')
     panel=(ADDON/'ui/main_panel.py').read_text(encoding='utf-8-sig')
-    tl=(ADDON/'timeline_manager.py').read_text(encoding='utf-8-sig')
+    tl=(ADDON/'managers/timeline_manager.py').read_text(encoding='utf-8-sig')
     assert 'from . import main_panel' in ui
     assert 'from . import manager_external' in ops
     assert 'from . import viewer_panel' not in ui

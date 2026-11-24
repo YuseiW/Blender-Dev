@@ -43,13 +43,16 @@ pkg=ModuleType('anim_reference_tool');pkg.__path__=[str(ROOT)]
 ops_pkg=ModuleType('anim_reference_tool.operators');ops_pkg.__path__=[str(ROOT/'operators')]
 sys.modules['anim_reference_tool']=pkg
 sys.modules['anim_reference_tool.operators']=ops_pkg
+managers_pkg=ModuleType('anim_reference_tool.managers')
+managers_pkg.__path__=[str(ROOT/'managers')]
+sys.modules['anim_reference_tool.managers']=managers_pkg
 storage_pkg=ModuleType('anim_reference_tool.storage')
 storage_pkg.__path__=[str(ROOT/'storage')]
 sys.modules['anim_reference_tool.storage']=storage_pkg
 
 # Stub dependencies that are irrelevant to snapshot/JSON dispatch
-image=ModuleType('anim_reference_tool.image_manager');image.add_image_asset=lambda p,path:(None,'NOT_FOUND')
-reference=ModuleType('anim_reference_tool.reference_manager')
+image=ModuleType('anim_reference_tool.managers.image_manager');image.add_image_asset=lambda p,path:(None,'NOT_FOUND')
+reference=ModuleType('anim_reference_tool.managers.reference_manager')
 reference.get_reference_collection=lambda cut,cat:getattr(cut,{'STORYBOARD':'storyboard_items','LAYOUT':'layout_items','KEYFRAME':'keyframe_items'}[cat])
 def add_reference(cut,cat,img):
     coll=reference.get_reference_collection(cut,cat)
@@ -62,12 +65,12 @@ def move_reference(cut,cat,i,delta):
     if not (0<=i+delta<len(coll)):return False
     coll[i],coll[i+delta]=coll[i+delta],coll[i];return True
 reference.move_reference=move_reference
-cutmod=ModuleType('anim_reference_tool.cut_manager')
+cutmod=ModuleType('anim_reference_tool.managers.cut_manager')
 cutmod.add_cut=lambda p:p.cuts.append(FakeCut()) or p.cuts[-1]
 cutmod.remove_cut=lambda p,i:False
 io=ModuleType('anim_reference_tool.storage.project_io');io.save_project=lambda p,path:None;io.load_project=lambda p,path:None
-timeline=ModuleType('anim_reference_tool.timeline_manager');timeline.sync_reference_display=lambda s:None
-for name,mod in [('image_manager',image),('reference_manager',reference),('cut_manager',cutmod),('storage.project_io',io),('timeline_manager',timeline)]:
+timeline=ModuleType('anim_reference_tool.managers.timeline_manager');timeline.sync_reference_display=lambda s:None
+for name,mod in [('managers.image_manager',image),('managers.reference_manager',reference),('managers.cut_manager',cutmod),('storage.project_io',io),('managers.timeline_manager',timeline)]:
     sys.modules['anim_reference_tool.'+name]=mod
 
 # Import pure IPC and operator module with package-qualified name

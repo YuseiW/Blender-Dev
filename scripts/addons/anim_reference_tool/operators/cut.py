@@ -1,6 +1,6 @@
 import bpy
 
-from ..cut_manager import (
+from ..managers.cut_manager import (
     add_cut,
     remove_cut,
 )

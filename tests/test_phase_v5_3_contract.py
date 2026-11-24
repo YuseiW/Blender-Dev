@@ -15,7 +15,7 @@ def test_legacy_files_retired():
         assert not (ADDON / rel).exists(), f'{rel} was not retired'
     ui = (ADDON / 'ui/__init__.py').read_text(encoding='utf-8-sig')
     ops = (ADDON / 'operators/__init__.py').read_text(encoding='utf-8-sig')
-    timeline = (ADDON / 'timeline_manager.py').read_text(encoding='utf-8-sig')
+    timeline = (ADDON / 'managers/timeline_manager.py').read_text(encoding='utf-8-sig')
     panel = (ADDON / 'ui/main_panel.py').read_text(encoding='utf-8-sig')
     assert 'from . import main_panel' in ui
     assert 'from . import manager_external' in ops
@@ -26,8 +26,8 @@ def test_legacy_files_retired():
     assert panel.count('"animref.open_external_manager"') == 1
     assert '"animref.open_viewer"' not in panel
     for rel in ('qt_manager_app.py','qt_viewer_page.py','operators/manager_external.py',
-                'camera_overlay_manager.py','image_manager.py','viewer_manager.py',
-                'timeline_manager.py','operators/__init__.py','ui/__init__.py'):
+                'managers/camera_overlay_manager.py','managers/image_manager.py','managers/viewer_manager.py',
+                'managers/timeline_manager.py','operators/__init__.py','ui/__init__.py'):
         f = ADDON / rel
         assert f.is_file(), rel
         ast.parse(f.read_text(encoding='utf-8-sig'), filename=str(f))

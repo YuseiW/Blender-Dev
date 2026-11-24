@@ -31,7 +31,7 @@ if project_io is None:
     )
 
 timeline_manager = importlib.import_module(
-    project_io.__package__.rsplit(".", 1)[0] + ".timeline_manager"
+    project_io.__package__.rsplit(".", 1)[0] + ".managers.timeline_manager"
 )
 
 

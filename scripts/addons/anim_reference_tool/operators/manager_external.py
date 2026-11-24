@@ -14,14 +14,14 @@ import tempfile
 import bpy
 
 from ..manager_ipc import read_json, write_json_atomic
-from ..image_manager import add_image_asset
-from ..reference_manager import (
+from ..managers.image_manager import add_image_asset
+from ..managers.reference_manager import (
     add_reference, get_reference_collection, move_reference, remove_reference,
 )
-from ..cut_manager import add_cut, remove_cut
+from ..managers.cut_manager import add_cut, remove_cut
 from ..storage.project_io import save_project, load_project
-from ..timeline_manager import sync_reference_display
-from .. import camera_overlay_manager
+from ..managers.timeline_manager import sync_reference_display
+from ..managers import camera_overlay_manager
 
 
 _process = None

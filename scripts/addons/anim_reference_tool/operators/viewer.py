@@ -1,9 +1,9 @@
 
 import bpy
 
-from ..viewer_manager import open_viewer_window
+from ..managers.viewer_manager import open_viewer_window
 
-from ..timeline_manager import (
+from ..managers.timeline_manager import (
     sync_reference_display,
 )
 

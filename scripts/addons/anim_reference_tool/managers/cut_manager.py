@@ -1,4 +1,4 @@
-from .core.utils import generate_uid
+from ..core.utils import generate_uid
 
 
 def generate_cut_name(project):

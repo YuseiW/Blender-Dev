@@ -6,7 +6,7 @@ from bpy.props import (
     CollectionProperty,
 )
 
-from ..image_manager import add_image_asset
+from ..managers.image_manager import add_image_asset
 
 
 class ANIMREF_OT_ImportImages(bpy.types.Operator):
